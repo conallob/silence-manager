@@ -108,6 +108,59 @@ docker build -t your-registry/silence-manager:latest .
 docker push your-registry/silence-manager:latest
 ```
 
+## Installation
+
+### Using Pre-built Binaries
+
+Download the latest release for your platform from the [Releases page](https://github.com/conallob/silence-manager/releases):
+
+```bash
+# Example for Linux amd64
+wget https://github.com/conallob/silence-manager/releases/download/v0.1.0/silence-manager_Linux_x86_64.tar.gz
+tar -xzf silence-manager_Linux_x86_64.tar.gz
+./silence-manager
+```
+
+### Using Container Images
+
+Pre-built multi-arch container images are available from GitHub Container Registry:
+
+```bash
+# Pull the latest version
+docker pull ghcr.io/conallob/silence-manager:latest
+
+# Or a specific version
+docker pull ghcr.io/conallob/silence-manager:v0.1.0
+```
+
+Supported architectures: `amd64`, `arm64`
+
+### Using Go Install
+
+```bash
+go install github.com/conallob/silence-manager/cmd/silence-manager@latest
+```
+
+## Releasing
+
+This project uses [GoReleaser](https://goreleaser.com/) for automated releases. To create a new release:
+
+1. Create and push a new tag:
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   ```
+
+2. GitHub Actions will automatically:
+   - Build binaries for multiple platforms (Linux, macOS, Windows)
+   - Build multi-arch container images (amd64, arm64)
+   - Push container images to GitHub Container Registry
+   - Create a GitHub release with artifacts and release notes
+
+3. The release will be available at:
+   - GitHub Releases: `https://github.com/conallob/silence-manager/releases`
+   - Container Registry: `ghcr.io/conallob/silence-manager:VERSION`
+
 ## Deployment
 
 ### 1. Create Namespace

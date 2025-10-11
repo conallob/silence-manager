@@ -77,7 +77,31 @@ go build -o silence-manager ./cmd/silence-manager
 
 # Build Docker image
 docker build -t silence-manager:latest .
+
+# Test goreleaser configuration
+goreleaser build --snapshot --clean
 ```
+
+### Creating a Release
+
+This project uses GoReleaser for automated releases:
+
+1. Ensure all changes are committed and pushed
+2. Create and push a new tag:
+   ```bash
+   git tag -a v0.1.0 -m "Release v0.1.0"
+   git push origin v0.1.0
+   ```
+3. GitHub Actions will automatically:
+   - Build binaries for Linux, macOS, and Windows
+   - Build multi-arch container images (amd64, arm64)
+   - Push images to GitHub Container Registry
+   - Create a GitHub release with artifacts
+
+Configuration files:
+- `.goreleaser.yaml` - GoReleaser configuration
+- `.github/workflows/release.yml` - Release workflow
+- `Dockerfile.goreleaser` - Dockerfile for container images
 
 ### Running Tests
 

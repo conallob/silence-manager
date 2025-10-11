@@ -1,0 +1,20 @@
+# Dockerfile for goreleaser
+# This expects the binary to be pre-built and provided by goreleaser
+FROM alpine:latest
+
+RUN apk --no-cache add ca-certificates tzdata
+
+WORKDIR /root/
+
+# Copy the pre-built binary (goreleaser will provide this)
+COPY silence-manager .
+
+# Run as non-root user
+RUN addgroup -g 1000 appuser && \
+    adduser -D -u 1000 -G appuser appuser && \
+    chown -R appuser:appuser /root
+
+USER appuser
+
+# Run the application
+CMD ["./silence-manager"]
