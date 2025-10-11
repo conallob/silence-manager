@@ -1,0 +1,17 @@
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: silence-manager-config
+  namespace: monitoring
+data:
+  # Alertmanager Configuration
+  alertmanager-auth-type: "none"  # Options: "none", "basic", "bearer"
+
+  # Jira Configuration
+  jira-project-key: "OPS"
+
+  # Sync Configuration
+  sync-expiry-threshold-hours: "24"
+  sync-extension-duration-hours: "168"  # 7 days
+  sync-default-silence-duration-hours: "168"  # 7 days
+  sync-check-alerts: "true"

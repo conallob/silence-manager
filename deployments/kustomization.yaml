@@ -1,0 +1,25 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: monitoring
+
+resources:
+  - serviceaccount.yaml
+  - configmap.yaml
+  - cronjob.yaml
+
+# Create the secret separately using kubectl or a secure secret management system
+#
+# Option 1: kubectl
+# kubectl create secret generic silence-manager-secrets \
+#   --from-literal=jira-url=https://your-domain.atlassian.net \
+#   --from-literal=jira-username=your-email@example.com \
+#   --from-literal=jira-api-token=your-api-token \
+#   --from-literal=alertmanager-username=admin \
+#   --from-literal=alertmanager-password=your-password \
+#   -n monitoring
+#
+# Option 2: External Secrets Operator
+# Create an ExternalSecret that references your secrets from AWS Secrets Manager,
+# HashiCorp Vault, Azure Key Vault, GCP Secret Manager, etc.
+# See secret.yaml.example for required keys

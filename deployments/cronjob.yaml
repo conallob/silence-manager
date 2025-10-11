@@ -1,0 +1,107 @@
+apiVersion: batch/v1
+kind: CronJob
+metadata:
+  name: silence-manager
+  namespace: monitoring
+spec:
+  # Run every 15 minutes
+  schedule: "*/15 * * * *"
+  successfulJobsHistoryLimit: 3
+  failedJobsHistoryLimit: 3
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            app: silence-manager
+        spec:
+          serviceAccountName: silence-manager
+          restartPolicy: OnFailure
+          containers:
+          - name: silence-manager
+            image: silence-manager:latest
+            imagePullPolicy: IfNotPresent
+            env:
+            # Alertmanager Configuration
+            - name: ALERTMANAGER_URL
+              value: "http://alertmanager:9093"
+            - name: ALERTMANAGER_AUTH_TYPE
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: alertmanager-auth-type
+                  optional: true
+            - name: ALERTMANAGER_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: alertmanager-username
+                  optional: true
+            - name: ALERTMANAGER_PASSWORD
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: alertmanager-password
+                  optional: true
+            - name: ALERTMANAGER_BEARER_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: alertmanager-bearer-token
+                  optional: true
+
+            # Jira Configuration
+            - name: JIRA_URL
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: jira-url
+            - name: JIRA_USERNAME
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: jira-username
+            - name: JIRA_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: jira-api-token
+            - name: JIRA_PROJECT_KEY
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: jira-project-key
+
+            # Sync Configuration
+            - name: SYNC_EXPIRY_THRESHOLD_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: sync-expiry-threshold-hours
+                  optional: true
+            - name: SYNC_EXTENSION_DURATION_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: sync-extension-duration-hours
+                  optional: true
+            - name: SYNC_DEFAULT_SILENCE_DURATION_HOURS
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: sync-default-silence-duration-hours
+                  optional: true
+            - name: SYNC_CHECK_ALERTS
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: sync-check-alerts
+                  optional: true
+            resources:
+              requests:
+                memory: "64Mi"
+                cpu: "100m"
+              limits:
+                memory: "128Mi"
+                cpu: "200m"
