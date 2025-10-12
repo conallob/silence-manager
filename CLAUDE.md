@@ -53,9 +53,9 @@ silence-manager/
 
 3. **Synchronization Strategy**: Polling-based approach running as a Kubernetes CronJob (default: every 15 minutes)
 
-4. **State Management**: Stateless design where coupling is tracked through:
-   - Silence comments contain ticket references: `Ticket: PROJECT-123`
-   - Ticket descriptions contain silence references: `Silence: <silence-id>`
+4. **State Management**: Stateless design where coupling is tracked through annotations with a configurable prefix (default: `silence-manager`):
+   - Silence comments contain ticket references: `# silence-manager: PROJECT-123`
+   - Ticket descriptions contain silence references: `silence-manager: <silence-id>`
 
 ### Key Features
 
@@ -139,6 +139,7 @@ All configuration is via environment variables (see pkg/config/config.go):
 - `ALERTMANAGER_USERNAME`: Username for basic auth
 - `ALERTMANAGER_PASSWORD`: Password for basic auth
 - `ALERTMANAGER_BEARER_TOKEN`: Bearer token for token auth
+- `SYNC_ANNOTATION_PREFIX`: Prefix for annotations linking silences and tickets (default: silence-manager)
 - `SYNC_EXPIRY_THRESHOLD_HOURS`: Hours before expiry to extend (default: 24)
 - `SYNC_EXTENSION_DURATION_HOURS`: Hours to extend by (default: 168)
 - `SYNC_DEFAULT_SILENCE_DURATION_HOURS`: Default silence duration (default: 168)

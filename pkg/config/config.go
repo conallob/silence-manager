@@ -37,6 +37,7 @@ type SyncConfig struct {
 	ExtensionDurationHours      int
 	DefaultSilenceDurationHours int
 	CheckAlerts                 bool
+	AnnotationPrefix            string
 }
 
 // LoadConfig loads configuration from environment variables
@@ -60,6 +61,7 @@ func LoadConfig() (*Config, error) {
 			ExtensionDurationHours:      getEnvInt("SYNC_EXTENSION_DURATION_HOURS", 168), // 7 days
 			DefaultSilenceDurationHours: getEnvInt("SYNC_DEFAULT_SILENCE_DURATION_HOURS", 168), // 7 days
 			CheckAlerts:                 getEnvBool("SYNC_CHECK_ALERTS", true),
+			AnnotationPrefix:            getEnv("SYNC_ANNOTATION_PREFIX", "silence-manager"),
 		},
 	}
 

@@ -11,39 +11,47 @@ import (
 
 // PrometheusAlertManager implements the AlertManager interface for Prometheus Alertmanager
 type PrometheusAlertManager struct {
-	baseURL     string
-	authType    string
-	username    string
-	password    string
-	bearerToken string
-	httpClient  *http.Client
+	baseURL          string
+	authType         string
+	username         string
+	password         string
+	bearerToken      string
+	httpClient       *http.Client
+	annotationPrefix string
 }
 
 // AlertManagerConfig holds configuration for creating a new Alertmanager client
 type AlertManagerConfig struct {
-	BaseURL     string
-	AuthType    string // "none", "basic", "bearer"
-	Username    string
-	Password    string
-	BearerToken string
+	BaseURL          string
+	AuthType         string // "none", "basic", "bearer"
+	Username         string
+	Password         string
+	BearerToken      string
+	AnnotationPrefix string
 }
 
 // NewPrometheusAlertManager creates a new Prometheus Alertmanager client
 func NewPrometheusAlertManager(baseURL string) *PrometheusAlertManager {
 	return NewPrometheusAlertManagerWithConfig(AlertManagerConfig{
-		BaseURL:  baseURL,
-		AuthType: "none",
+		BaseURL:          baseURL,
+		AuthType:         "none",
+		AnnotationPrefix: "silence-manager",
 	})
 }
 
 // NewPrometheusAlertManagerWithConfig creates a new Prometheus Alertmanager client with configuration
 func NewPrometheusAlertManagerWithConfig(config AlertManagerConfig) *PrometheusAlertManager {
+	prefix := config.AnnotationPrefix
+	if prefix == "" {
+		prefix = "silence-manager"
+	}
 	return &PrometheusAlertManager{
-		baseURL:     config.BaseURL,
-		authType:    config.AuthType,
-		username:    config.Username,
-		password:    config.Password,
-		bearerToken: config.BearerToken,
+		baseURL:          config.BaseURL,
+		authType:         config.AuthType,
+		username:         config.Username,
+		password:         config.Password,
+		bearerToken:      config.BearerToken,
+		annotationPrefix: prefix,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -320,8 +328,8 @@ func (p *PrometheusAlertManager) convertFromPromSilence(ps *promSilence) *Silenc
 		}
 	}
 
-	// Extract ticket reference from comment if it follows the pattern "Ticket: TICKET-123"
-	ticketRef := extractTicketRef(ps.Comment)
+	// Extract ticket reference from comment if it follows the pattern "# prefix: TICKET-123"
+	ticketRef := p.extractTicketRef(ps.Comment)
 
 	return &Silence{
 		ID:        ps.ID,
@@ -348,7 +356,7 @@ func (p *PrometheusAlertManager) convertToPromSilence(s *Silence) *promSilence {
 	// Embed ticket reference in comment if present
 	comment := s.Comment
 	if s.TicketRef != "" {
-		comment = fmt.Sprintf("Ticket: %s\n%s", s.TicketRef, comment)
+		comment = fmt.Sprintf("# %s: %s\n%s", p.annotationPrefix, s.TicketRef, comment)
 	}
 
 	return &promSilence{
@@ -403,9 +411,9 @@ func (p *PrometheusAlertManager) matchesMatchers(alert *Alert, matchers []Matche
 }
 
 // extractTicketRef extracts the ticket reference from a comment
-func extractTicketRef(comment string) string {
-	// Look for pattern "Ticket: TICKET-123"
-	const prefix = "Ticket: "
+func (p *PrometheusAlertManager) extractTicketRef(comment string) string {
+	// Look for pattern "# prefix: TICKET-123"
+	prefix := fmt.Sprintf("# %s: ", p.annotationPrefix)
 	if len(comment) < len(prefix) {
 		return ""
 	}

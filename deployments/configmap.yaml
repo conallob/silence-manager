@@ -11,6 +11,7 @@ data:
   jira-project-key: "OPS"
 
   # Sync Configuration
+  sync-annotation-prefix: "silence-manager"
   sync-expiry-threshold-hours: "24"
   sync-extension-duration-hours: "168"  # 7 days
   sync-default-silence-duration-hours: "168"  # 7 days

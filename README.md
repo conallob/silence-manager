@@ -81,6 +81,7 @@ The application is configured via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
+| `SYNC_ANNOTATION_PREFIX` | Prefix for annotations linking silences and tickets | `silence-manager` |
 | `SYNC_EXPIRY_THRESHOLD_HOURS` | Hours before expiry to extend silence | `24` |
 | `SYNC_EXTENSION_DURATION_HOURS` | Hours to extend silence by | `168` (7 days) |
 | `SYNC_DEFAULT_SILENCE_DURATION_HOURS` | Default duration for new silences | `168` (7 days) |
@@ -256,6 +257,7 @@ data:
   jira-project-key: "YOUR-PROJECT-KEY"
 
   # Sync Configuration
+  sync-annotation-prefix: "silence-manager"
   sync-expiry-threshold-hours: "24"
   sync-extension-duration-hours: "168"
   sync-default-silence-duration-hours: "168"
@@ -298,11 +300,11 @@ containers:
 To link a silence with a ticket, include the ticket reference in the silence comment using the format:
 
 ```
-Ticket: PROJECT-123
+# silence-manager: PROJECT-123
 <additional comment>
 ```
 
-The synchronizer will automatically extract the ticket reference and manage the silence accordingly.
+The prefix (`silence-manager` by default) can be customized using the `SYNC_ANNOTATION_PREFIX` environment variable. The synchronizer will automatically extract the ticket reference and manage the silence accordingly.
 
 ### Manual Trigger
 
@@ -340,9 +342,11 @@ The synchronizer runs on a schedule (default: every 15 minutes) and performs the
 
 ### Ticket-Silence Coupling
 
-The coupling between silences and tickets is maintained through:
-- Silence comments contain ticket references: `Ticket: PROJECT-123`
-- Ticket descriptions contain silence references: `Silence: <silence-id>`
+The coupling between silences and tickets is maintained through annotations with a configurable prefix (default: `silence-manager`):
+- Silence comments contain ticket references: `# silence-manager: PROJECT-123`
+- Ticket descriptions contain silence references: `silence-manager: <silence-id>`
+
+The prefix can be customized using the `SYNC_ANNOTATION_PREFIX` environment variable.
 
 ## Extending the Application
 

@@ -74,6 +74,12 @@ spec:
                   key: jira-project-key
 
             # Sync Configuration
+            - name: SYNC_ANNOTATION_PREFIX
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: sync-annotation-prefix
+                  optional: true
             - name: SYNC_EXPIRY_THRESHOLD_HOURS
               valueFrom:
                 configMapKeyRef:

@@ -12,20 +12,26 @@ import (
 
 // JiraTicketSystem implements the TicketSystem interface for Atlassian Jira
 type JiraTicketSystem struct {
-	baseURL    string
-	username   string
-	apiToken   string
-	projectKey string
-	httpClient *http.Client
+	baseURL          string
+	username         string
+	apiToken         string
+	projectKey       string
+	httpClient       *http.Client
+	annotationPrefix string
 }
 
 // NewJiraTicketSystem creates a new Jira ticket system client
-func NewJiraTicketSystem(baseURL, username, apiToken, projectKey string) *JiraTicketSystem {
+func NewJiraTicketSystem(baseURL, username, apiToken, projectKey, annotationPrefix string) *JiraTicketSystem {
+	prefix := annotationPrefix
+	if prefix == "" {
+		prefix = "silence-manager"
+	}
 	return &JiraTicketSystem{
-		baseURL:    strings.TrimSuffix(baseURL, "/"),
-		username:   username,
-		apiToken:   apiToken,
-		projectKey: projectKey,
+		baseURL:          strings.TrimSuffix(baseURL, "/"),
+		username:         username,
+		apiToken:         apiToken,
+		projectKey:       projectKey,
+		annotationPrefix: prefix,
 		httpClient: &http.Client{
 			Timeout: 30 * time.Second,
 		},
@@ -415,7 +421,7 @@ func (j *JiraTicketSystem) convertFromJiraIssue(ji *jiraIssue) *Ticket {
 	if ji.Fields.Description != nil {
 		ticket.Description = j.extractDescriptionText(ji.Fields.Description)
 		// Extract silence reference from description if present
-		ticket.SilenceRef = extractSilenceRef(ticket.Description)
+		ticket.SilenceRef = j.extractSilenceRef(ticket.Description)
 	}
 
 	if ji.Fields.Status != nil {
@@ -455,7 +461,7 @@ func (j *JiraTicketSystem) convertToJiraIssue(ticket *Ticket) *jiraIssue {
 	// Embed silence reference in description if present
 	description := ticket.Description
 	if ticket.SilenceRef != "" {
-		description = fmt.Sprintf("Silence: %s\n\n%s", ticket.SilenceRef, description)
+		description = fmt.Sprintf("%s: %s\n\n%s", j.annotationPrefix, ticket.SilenceRef, description)
 	}
 
 	ji.Fields.Description = j.createJiraDescription(description)
@@ -515,9 +521,9 @@ func (j *JiraTicketSystem) mapJiraStatus(status string) TicketStatus {
 }
 
 // extractSilenceRef extracts the silence reference from a description
-func extractSilenceRef(description string) string {
-	// Look for pattern "Silence: silence-id"
-	const prefix = "Silence: "
+func (j *JiraTicketSystem) extractSilenceRef(description string) string {
+	// Look for pattern "prefix: silence-id"
+	prefix := fmt.Sprintf("%s: ", j.annotationPrefix)
 	if len(description) < len(prefix) {
 		return ""
 	}
