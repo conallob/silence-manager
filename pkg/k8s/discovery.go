@@ -185,3 +185,121 @@ func contains(slice []string, item string) bool {
 	}
 	return false
 }
+
+// DiscoverPushgateway discovers Prometheus Pushgateway services across all namespaces
+func DiscoverPushgateway(cfg DiscoveryConfig) (*DiscoveredService, error) {
+	// Default port for Pushgateway if not specified
+	if cfg.Port == 0 {
+		cfg.Port = 9091
+	}
+
+	// Default service name if not specified
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = "pushgateway"
+	}
+
+	// Default label if not specified
+	if cfg.ServiceLabel == "" {
+		cfg.ServiceLabel = "app=pushgateway"
+	}
+
+	return discoverService(cfg, "Pushgateway")
+}
+
+// DiscoverOTelCollector discovers OpenTelemetry Collector services across all namespaces
+func DiscoverOTelCollector(cfg DiscoveryConfig) (*DiscoveredService, error) {
+	// Default port for OTel Collector OTLP HTTP if not specified
+	if cfg.Port == 0 {
+		cfg.Port = 4318
+	}
+
+	// Default service name if not specified
+	if cfg.ServiceName == "" {
+		cfg.ServiceName = "otel-collector"
+	}
+
+	// Default label if not specified
+	if cfg.ServiceLabel == "" {
+		cfg.ServiceLabel = "app=opentelemetry-collector"
+	}
+
+	return discoverService(cfg, "OTel Collector")
+}
+
+// discoverService is a generic service discovery function
+func discoverService(cfg DiscoveryConfig, serviceName string) (*DiscoveredService, error) {
+	// Create in-cluster config
+	config, err := rest.InClusterConfig()
+	if err != nil {
+		return nil, fmt.Errorf("failed to create in-cluster config: %w", err)
+	}
+
+	// Create Kubernetes clientset
+	clientset, err := kubernetes.NewForConfig(config)
+	if err != nil {
+		return nil, fmt.Errorf("failed to create Kubernetes client: %w", err)
+	}
+
+	ctx := context.Background()
+
+	// Search for services
+	var discoveredServices []DiscoveredService
+
+	// First, try preferred namespaces if specified
+	if len(cfg.PreferNamespaces) > 0 {
+		for _, ns := range cfg.PreferNamespaces {
+			services, err := findServicesInNamespace(ctx, clientset, ns, cfg)
+			if err != nil {
+				log.Printf("Warning: failed to search namespace %s: %v", ns, err)
+				continue
+			}
+			discoveredServices = append(discoveredServices, services...)
+			if len(discoveredServices) > 0 {
+				log.Printf("Found %s in preferred namespace: %s", serviceName, ns)
+				break
+			}
+		}
+	}
+
+	// If not found in preferred namespaces, search all namespaces
+	if len(discoveredServices) == 0 {
+		log.Printf("Searching all namespaces for %s services...", serviceName)
+
+		// List all namespaces
+		namespaces, err := clientset.CoreV1().Namespaces().List(ctx, metav1.ListOptions{})
+		if err != nil {
+			return nil, fmt.Errorf("failed to list namespaces: %w", err)
+		}
+
+		for _, ns := range namespaces.Items {
+			// Skip already-searched preferred namespaces
+			if contains(cfg.PreferNamespaces, ns.Name) {
+				continue
+			}
+
+			services, err := findServicesInNamespace(ctx, clientset, ns.Name, cfg)
+			if err != nil {
+				log.Printf("Warning: failed to search namespace %s: %v", ns.Name, err)
+				continue
+			}
+			discoveredServices = append(discoveredServices, services...)
+		}
+	}
+
+	// Return results
+	if len(discoveredServices) == 0 {
+		return nil, fmt.Errorf("no %s services found in cluster", serviceName)
+	}
+
+	// Log all discovered services
+	log.Printf("Discovered %d %s service(s):", len(discoveredServices), serviceName)
+	for i, svc := range discoveredServices {
+		log.Printf("  %d. %s/%s - %s", i+1, svc.Namespace, svc.Name, svc.URL)
+	}
+
+	// Return the first discovered service
+	selected := discoveredServices[0]
+	log.Printf("Selected %s: %s/%s - %s", serviceName, selected.Namespace, selected.Name, selected.URL)
+
+	return &selected, nil
+}

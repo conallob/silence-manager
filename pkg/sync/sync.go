@@ -6,6 +6,7 @@ import (
 	"time"
 
 	"github.com/conallob/silence-manager/pkg/alertmanager"
+	"github.com/conallob/silence-manager/pkg/metrics"
 	"github.com/conallob/silence-manager/pkg/ticket"
 )
 
@@ -23,18 +24,25 @@ type SyncConfig struct {
 
 // Synchronizer handles synchronization between alertmanager and ticket system
 type Synchronizer struct {
-	alertManager alertmanager.AlertManager
-	ticketSystem ticket.TicketSystem
-	config       SyncConfig
+	alertManager     alertmanager.AlertManager
+	ticketSystem     ticket.TicketSystem
+	config           SyncConfig
+	metricsPublisher metrics.Publisher
 }
 
 // NewSynchronizer creates a new synchronizer
 func NewSynchronizer(am alertmanager.AlertManager, ts ticket.TicketSystem, config SyncConfig) *Synchronizer {
 	return &Synchronizer{
-		alertManager: am,
-		ticketSystem: ts,
-		config:       config,
+		alertManager:     am,
+		ticketSystem:     ts,
+		config:           config,
+		metricsPublisher: metrics.NewNoopPublisher(), // Default to no-op
 	}
+}
+
+// SetMetricsPublisher sets the metrics publisher for the synchronizer
+func (s *Synchronizer) SetMetricsPublisher(publisher metrics.Publisher) {
+	s.metricsPublisher = publisher
 }
 
 // SyncResult contains the results of a synchronization run
@@ -63,11 +71,16 @@ func (s *Synchronizer) Sync() (*SyncResult, error) {
 	log.Printf("Found %d active silences", len(silences))
 
 	// Process each silence
+	now := time.Now()
 	for _, silence := range silences {
 		if silence.TicketRef == "" {
 			log.Printf("Silence %s has no ticket reference, skipping", silence.ID)
 			continue
 		}
+
+		// Record metrics for this silence
+		s.metricsPublisher.RecordSilenceCheck(silence.ID, silence.TicketRef, now)
+		s.metricsPublisher.RecordSilenceExpiry(silence.ID, silence.TicketRef, silence.EndsAt)
 
 		if err := s.processSilence(silence, result); err != nil {
 			log.Printf("Error processing silence %s: %v", silence.ID, err)
@@ -85,6 +98,12 @@ func (s *Synchronizer) Sync() (*SyncResult, error) {
 
 	log.Printf("Synchronization complete: extended=%d, deleted=%d, created=%d, reopened=%d, errors=%d",
 		result.SilencesExtended, result.SilencesDeleted, result.SilencesCreated, result.TicketsReopened, len(result.Errors))
+
+	// Push metrics to backend
+	if err := s.metricsPublisher.Push(); err != nil {
+		log.Printf("Warning: failed to push metrics: %v", err)
+		result.Errors = append(result.Errors, fmt.Errorf("push metrics: %w", err))
+	}
 
 	return result, nil
 }

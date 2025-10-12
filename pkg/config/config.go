@@ -13,6 +13,7 @@ type Config struct {
 	Alertmanager AlertmanagerConfig
 	Jira         JiraConfig
 	Sync         SyncConfig
+	Metrics      MetricsConfig
 }
 
 // AlertmanagerConfig holds Alertmanager-specific configuration
@@ -47,10 +48,31 @@ type SyncConfig struct {
 	AnnotationPrefix            string
 }
 
+// MetricsConfig holds metrics publishing configuration
+type MetricsConfig struct {
+	Enabled               bool
+	Backend               string // "pushgateway", "otel", or ""
+	URL                   string
+	JobName               string // For Pushgateway
+	OTelInsecure          bool   // For OTel - use insecure connection
+	// Auto-discovery configuration
+	AutoDiscover          bool
+	DiscoveryServiceName  string   // Service name pattern to match
+	DiscoveryServiceLabel string   // Label selector for discovery
+	DiscoveryPort         int      // Port to use for discovered services
+	DiscoveryNamespaces   []string // Preferred namespaces to search first
+}
+
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
 	alertmanagerURL := getEnv("ALERTMANAGER_URL", "")
 	autoDiscover := alertmanagerURL == "" || getEnvBool("ALERTMANAGER_AUTO_DISCOVER", alertmanagerURL == "")
+
+	// Metrics configuration
+	metricsEnabled := getEnvBool("METRICS_ENABLED", false)
+	metricsURL := getEnv("METRICS_URL", "")
+	metricsBackend := getEnv("METRICS_BACKEND", "")
+	metricsAutoDiscover := metricsURL == "" && metricsEnabled && metricsBackend != ""
 
 	cfg := &Config{
 		Alertmanager: AlertmanagerConfig{
@@ -77,6 +99,18 @@ func LoadConfig() (*Config, error) {
 			DefaultSilenceDurationHours: getEnvInt("SYNC_DEFAULT_SILENCE_DURATION_HOURS", 168), // 7 days
 			CheckAlerts:                 getEnvBool("SYNC_CHECK_ALERTS", true),
 			AnnotationPrefix:            getEnv("SYNC_ANNOTATION_PREFIX", "silence-manager"),
+		},
+		Metrics: MetricsConfig{
+			Enabled:               metricsEnabled,
+			Backend:               metricsBackend,
+			URL:                   metricsURL,
+			JobName:               getEnv("METRICS_PUSHGATEWAY_JOB_NAME", "silence_manager"),
+			OTelInsecure:          getEnvBool("METRICS_OTEL_INSECURE", true),
+			AutoDiscover:          metricsAutoDiscover,
+			DiscoveryServiceName:  getEnv("METRICS_DISCOVERY_SERVICE_NAME", ""),
+			DiscoveryServiceLabel: getEnv("METRICS_DISCOVERY_SERVICE_LABEL", ""),
+			DiscoveryPort:         getEnvInt("METRICS_DISCOVERY_PORT", 0),
+			DiscoveryNamespaces:   getEnvSlice("METRICS_DISCOVERY_NAMESPACES", []string{"monitoring", "default"}),
 		},
 	}
 
@@ -108,6 +142,20 @@ func LoadConfig() (*Config, error) {
 		// No validation needed
 	default:
 		return nil, fmt.Errorf("invalid ALERTMANAGER_AUTH_TYPE: %s (must be 'none', 'basic', or 'bearer')", cfg.Alertmanager.AuthType)
+	}
+
+	// Validate metrics configuration
+	if cfg.Metrics.Enabled {
+		if cfg.Metrics.Backend == "" {
+			return nil, fmt.Errorf("METRICS_BACKEND is required when METRICS_ENABLED is true (must be 'pushgateway' or 'otel')")
+		}
+		if cfg.Metrics.Backend != "pushgateway" && cfg.Metrics.Backend != "otel" {
+			return nil, fmt.Errorf("invalid METRICS_BACKEND: %s (must be 'pushgateway' or 'otel')", cfg.Metrics.Backend)
+		}
+		// URL is not required if auto-discovery is enabled
+		if !cfg.Metrics.AutoDiscover && cfg.Metrics.URL == "" {
+			return nil, fmt.Errorf("METRICS_URL is required when metrics are enabled and auto-discovery is disabled")
+		}
 	}
 
 	return cfg, nil

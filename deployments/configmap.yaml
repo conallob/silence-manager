@@ -16,3 +16,16 @@ data:
   sync-extension-duration-hours: "168"  # 7 days
   sync-default-silence-duration-hours: "168"  # 7 days
   sync-check-alerts: "true"
+
+  # Metrics Configuration (Optional - disabled by default)
+  # metrics-enabled: "true"  # Set to "true" to enable metrics publishing
+  # metrics-backend: "pushgateway"  # Options: "pushgateway", "otel"
+  # metrics-url: "http://pushgateway.monitoring.svc.cluster.local:9091"  # Optional if auto-discovery is enabled
+  # metrics-pushgateway-job-name: "silence_manager"  # For Pushgateway backend
+  # metrics-otel-insecure: "true"  # For OTel backend - use insecure connection
+
+  # Metrics Auto-Discovery (Optional - enabled automatically when URL is empty and metrics are enabled)
+  # metrics-discovery-service-name: "pushgateway"  # Service name pattern for Pushgateway or "otel-collector" for OTel
+  # metrics-discovery-service-label: "app=pushgateway"  # Label selector for discovery or "app=opentelemetry-collector" for OTel
+  # metrics-discovery-port: "9091"  # Port for discovered services (9091 for Pushgateway, 4318 for OTel)
+  # metrics-discovery-namespaces: "monitoring,default"  # Comma-separated list of preferred namespaces

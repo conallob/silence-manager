@@ -22,6 +22,7 @@ This design allows for easy extension to support additional systems in the futur
 ## Features
 
 - **Kubernetes-native service discovery** - Automatically discovers Alertmanager across all namespaces
+- **Optional metrics publishing** - Publish metrics to Prometheus Pushgateway or OpenTelemetry Collector (disabled by default)
 - Automatic silence extension for open tickets
 - Automatic silence deletion for resolved tickets
 - Automatic ticket reopening and silence recreation for refired alerts
@@ -39,6 +40,7 @@ silence-manager/
 │   ├── alertmanager/        # Alertmanager interface and Prometheus implementation
 │   ├── ticket/              # Ticket interface and Jira implementation
 │   ├── sync/                # Synchronization logic
+│   ├── metrics/             # Metrics publishing (Pushgateway, OTel)
 │   ├── k8s/                 # Kubernetes service discovery
 │   └── config/              # Configuration management
 ├── deployments/             # Kubernetes manifests
@@ -100,6 +102,57 @@ The application is configured via environment variables:
 | `SYNC_EXTENSION_DURATION_HOURS` | Hours to extend silence by | `168` (7 days) |
 | `SYNC_DEFAULT_SILENCE_DURATION_HOURS` | Default duration for new silences | `168` (7 days) |
 | `SYNC_CHECK_ALERTS` | Check for refired alerts | `true` |
+
+#### Metrics Configuration (Optional)
+
+Silence Manager can optionally publish metrics to either a Prometheus Pushgateway or an OpenTelemetry Collector. Metrics publishing is **disabled by default**.
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `METRICS_ENABLED` | Enable metrics publishing | `false` |
+| `METRICS_BACKEND` | Metrics backend: `pushgateway` or `otel` | *(required if enabled)* |
+| `METRICS_URL` | Metrics backend URL (optional if auto-discovery is enabled) | *(empty - auto-discovery)* |
+| `METRICS_PUSHGATEWAY_JOB_NAME` | Job name for Pushgateway | `silence_manager` |
+| `METRICS_OTEL_INSECURE` | Use insecure connection for OTel | `true` |
+| `METRICS_DISCOVERY_SERVICE_NAME` | Service name pattern for discovery | *(backend-specific)* |
+| `METRICS_DISCOVERY_SERVICE_LABEL` | Label selector for discovery | *(backend-specific)* |
+| `METRICS_DISCOVERY_PORT` | Port for discovered services | *(backend-specific)* |
+| `METRICS_DISCOVERY_NAMESPACES` | Comma-separated list of preferred namespaces | `monitoring,default` |
+
+**Published Metrics:**
+
+| Metric | Type | Labels | Description |
+|--------|------|--------|-------------|
+| `silence_manager_build_info` | Gauge | `version`, `commit`, `build_date` | Build information for silence-manager |
+| `silence_manager_silence_last_checked` | Gauge | `silence_id`, `ticket` | Unix timestamp of when a silence was last checked |
+| `silence_manager_silence_expiring_in` | Gauge | `silence_id`, `ticket` | Seconds until a silence expires |
+
+**Auto-Discovery for Metrics Backends:**
+
+When `METRICS_URL` is not set and metrics are enabled, the application will automatically search for metrics backend services:
+
+- **Pushgateway**: Searches for services with label `app=pushgateway` or name containing `pushgateway` on port `9091`
+- **OTel Collector**: Searches for services with label `app=opentelemetry-collector` or name containing `otel-collector` on port `4318` (OTLP HTTP)
+
+**Example Configuration:**
+
+```yaml
+# Enable metrics with Pushgateway auto-discovery
+metrics-enabled: "true"
+metrics-backend: "pushgateway"
+# metrics-url not set - auto-discovery will be used
+
+# Or with explicit URL
+metrics-enabled: "true"
+metrics-backend: "pushgateway"
+metrics-url: "http://pushgateway.monitoring.svc.cluster.local:9091"
+
+# Or with OpenTelemetry Collector
+metrics-enabled: "true"
+metrics-backend: "otel"
+metrics-url: "otel-collector.monitoring.svc.cluster.local:4318"
+metrics-otel-insecure: "true"
+```
 
 ## Building
 
@@ -276,6 +329,11 @@ data:
   sync-extension-duration-hours: "168"
   sync-default-silence-duration-hours: "168"
   sync-check-alerts: "true"
+
+  # Metrics Configuration (Optional - commented out by default)
+  # metrics-enabled: "true"
+  # metrics-backend: "pushgateway"
+  # metrics-url: "http://pushgateway.monitoring.svc.cluster.local:9091"
 ```
 
 Set `alertmanager-auth-type` to:

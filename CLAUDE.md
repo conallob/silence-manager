@@ -33,8 +33,13 @@ silence-manager/
 │   │   └── jira.go             # Jira ticket system client
 │   ├── sync/                   # Core synchronization logic
 │   │   └── sync.go             # Synchronizer implementation
+│   ├── metrics/                # Metrics publishing
+│   │   ├── types.go            # Interface definitions and common types
+│   │   ├── noop.go             # No-op publisher (default)
+│   │   ├── pushgateway.go      # Prometheus Pushgateway client
+│   │   └── otel.go             # OpenTelemetry Collector client
 │   ├── k8s/                    # Kubernetes integration
-│   │   └── discovery.go        # Service discovery for Alertmanager
+│   │   └── discovery.go        # Service discovery for Alertmanager and metrics backends
 │   └── config/                 # Configuration management
 │       └── config.go           # Environment-based configuration
 ├── deployments/                # Kubernetes manifests
@@ -64,6 +69,7 @@ silence-manager/
 ### Key Features
 
 - **Kubernetes Service Discovery**: Automatically discovers Alertmanager services across all namespaces using the Kubernetes API
+- **Optional Metrics Publishing**: Publish metrics to Prometheus Pushgateway or OpenTelemetry Collector (disabled by default)
 - **Automatic Silence Extension**: When a ticket is open and the silence is about to expire
 - **Automatic Silence Deletion**: When a ticket is resolved
 - **Automatic Ticket Reopening**: When a ticket is closed but the alert refires
@@ -155,6 +161,17 @@ All configuration is via environment variables (see pkg/config/config.go):
 - `SYNC_DEFAULT_SILENCE_DURATION_HOURS`: Default silence duration (default: 168)
 - `SYNC_CHECK_ALERTS`: Check for refired alerts (default: true)
 
+**Metrics (Optional - disabled by default):**
+- `METRICS_ENABLED`: Enable metrics publishing (default: false)
+- `METRICS_BACKEND`: Metrics backend - "pushgateway" or "otel" (required if enabled)
+- `METRICS_URL`: Metrics backend URL (if not set and metrics enabled, auto-discovery is used)
+- `METRICS_PUSHGATEWAY_JOB_NAME`: Job name for Pushgateway (default: silence_manager)
+- `METRICS_OTEL_INSECURE`: Use insecure connection for OTel (default: true)
+- `METRICS_DISCOVERY_SERVICE_NAME`: Service name pattern for discovery
+- `METRICS_DISCOVERY_SERVICE_LABEL`: Label selector for discovery
+- `METRICS_DISCOVERY_PORT`: Port for discovered services (9091 for Pushgateway, 4318 for OTel)
+- `METRICS_DISCOVERY_NAMESPACES`: Comma-separated list of preferred namespaces (default: monitoring,default)
+
 ## Extending the Application
 
 ### Adding a New Ticket System
@@ -176,9 +193,12 @@ All configuration is via environment variables (see pkg/config/config.go):
 - Prometheus client: `pkg/alertmanager/prometheus.go:13`
 - Ticket interface: `pkg/ticket/types.go:33`
 - Jira client: `pkg/ticket/jira.go:14`
-- Synchronization logic: `pkg/sync/sync.go:32`
+- Synchronization logic: `pkg/sync/sync.go:25`
+- Metrics interface: `pkg/metrics/types.go:6`
+- Pushgateway client: `pkg/metrics/pushgateway.go:12`
+- OTel client: `pkg/metrics/otel.go:17`
 - Kubernetes service discovery: `pkg/k8s/discovery.go:20`
-- Configuration: `pkg/config/config.go:10`
+- Configuration: `pkg/config/config.go:12`
 
 ## Kubernetes Service Discovery
 

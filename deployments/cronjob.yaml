@@ -106,6 +106,62 @@ spec:
                   name: silence-manager-config
                   key: sync-check-alerts
                   optional: true
+
+            # Metrics Configuration (Optional)
+            - name: METRICS_ENABLED
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-enabled
+                  optional: true
+            - name: METRICS_BACKEND
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-backend
+                  optional: true
+            - name: METRICS_URL
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-url
+                  optional: true
+            - name: METRICS_PUSHGATEWAY_JOB_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-pushgateway-job-name
+                  optional: true
+            - name: METRICS_OTEL_INSECURE
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-otel-insecure
+                  optional: true
+            - name: METRICS_DISCOVERY_SERVICE_NAME
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-discovery-service-name
+                  optional: true
+            - name: METRICS_DISCOVERY_SERVICE_LABEL
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-discovery-service-label
+                  optional: true
+            - name: METRICS_DISCOVERY_PORT
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-discovery-port
+                  optional: true
+            - name: METRICS_DISCOVERY_NAMESPACES
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: metrics-discovery-namespaces
+                  optional: true
             resources:
               requests:
                 memory: "64Mi"
