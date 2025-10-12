@@ -4,6 +4,7 @@ import (
 	"fmt"
 	"os"
 	"strconv"
+	"strings"
 	"time"
 )
 
@@ -16,11 +17,17 @@ type Config struct {
 
 // AlertmanagerConfig holds Alertmanager-specific configuration
 type AlertmanagerConfig struct {
-	URL         string
-	AuthType    string // "none", "basic", "bearer"
-	Username    string // For basic auth
-	Password    string // For basic auth
-	BearerToken string // For bearer token auth
+	URL                   string
+	AuthType              string // "none", "basic", "bearer"
+	Username              string // For basic auth
+	Password              string // For basic auth
+	BearerToken           string // For bearer token auth
+	// Auto-discovery configuration
+	AutoDiscover          bool
+	DiscoveryServiceName  string   // Service name pattern to match
+	DiscoveryServiceLabel string   // Label selector for discovery
+	DiscoveryPort         int      // Port to use for discovered services
+	DiscoveryNamespaces   []string // Preferred namespaces to search first
 }
 
 // JiraConfig holds Jira-specific configuration
@@ -42,13 +49,21 @@ type SyncConfig struct {
 
 // LoadConfig loads configuration from environment variables
 func LoadConfig() (*Config, error) {
+	alertmanagerURL := getEnv("ALERTMANAGER_URL", "")
+	autoDiscover := alertmanagerURL == "" || getEnvBool("ALERTMANAGER_AUTO_DISCOVER", alertmanagerURL == "")
+
 	cfg := &Config{
 		Alertmanager: AlertmanagerConfig{
-			URL:         getEnv("ALERTMANAGER_URL", "http://alertmanager:9093"),
-			AuthType:    getEnv("ALERTMANAGER_AUTH_TYPE", "none"),
-			Username:    getEnv("ALERTMANAGER_USERNAME", ""),
-			Password:    getEnv("ALERTMANAGER_PASSWORD", ""),
-			BearerToken: getEnv("ALERTMANAGER_BEARER_TOKEN", ""),
+			URL:                   alertmanagerURL,
+			AuthType:              getEnv("ALERTMANAGER_AUTH_TYPE", "none"),
+			Username:              getEnv("ALERTMANAGER_USERNAME", ""),
+			Password:              getEnv("ALERTMANAGER_PASSWORD", ""),
+			BearerToken:           getEnv("ALERTMANAGER_BEARER_TOKEN", ""),
+			AutoDiscover:          autoDiscover,
+			DiscoveryServiceName:  getEnv("ALERTMANAGER_DISCOVERY_SERVICE_NAME", "alertmanager"),
+			DiscoveryServiceLabel: getEnv("ALERTMANAGER_DISCOVERY_SERVICE_LABEL", "app=alertmanager"),
+			DiscoveryPort:         getEnvInt("ALERTMANAGER_DISCOVERY_PORT", 9093),
+			DiscoveryNamespaces:   getEnvSlice("ALERTMANAGER_DISCOVERY_NAMESPACES", []string{"monitoring", "default"}),
 		},
 		Jira: JiraConfig{
 			URL:        getEnv("JIRA_URL", ""),
@@ -131,3 +146,21 @@ func getEnvBool(key string, defaultValue bool) bool {
 	}
 	return defaultValue
 }
+
+func getEnvSlice(key string, defaultValue []string) []string {
+	if value := os.Getenv(key); value != "" {
+		// Split by comma and trim spaces
+		var result []string
+		for _, item := range strings.Split(value, ",") {
+			trimmed := strings.TrimSpace(item)
+			if trimmed != "" {
+				result = append(result, trimmed)
+			}
+		}
+		if len(result) > 0 {
+			return result
+		}
+	}
+	return defaultValue
+}
+

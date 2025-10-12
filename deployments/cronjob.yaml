@@ -24,8 +24,10 @@ spec:
             imagePullPolicy: IfNotPresent
             env:
             # Alertmanager Configuration
-            - name: ALERTMANAGER_URL
-              value: "http://alertmanager:9093"
+            # When ALERTMANAGER_URL is not set, auto-discovery will be enabled
+            # to search for Alertmanager services across all namespaces
+            # - name: ALERTMANAGER_URL
+            #   value: "http://alertmanager:9093"
             - name: ALERTMANAGER_AUTH_TYPE
               valueFrom:
                 configMapKeyRef:

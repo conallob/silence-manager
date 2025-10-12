@@ -33,6 +33,8 @@ silence-manager/
 │   │   └── jira.go             # Jira ticket system client
 │   ├── sync/                   # Core synchronization logic
 │   │   └── sync.go             # Synchronizer implementation
+│   ├── k8s/                    # Kubernetes integration
+│   │   └── discovery.go        # Service discovery for Alertmanager
 │   └── config/                 # Configuration management
 │       └── config.go           # Environment-based configuration
 ├── deployments/                # Kubernetes manifests
@@ -40,6 +42,8 @@ silence-manager/
 │   ├── configmap.yaml         # Configuration
 │   ├── secret.yaml.example    # Secret template
 │   ├── serviceaccount.yaml    # ServiceAccount
+│   ├── clusterrole.yaml       # ClusterRole for service discovery
+│   ├── clusterrolebinding.yaml # ClusterRoleBinding for service discovery
 │   └── kustomization.yaml     # Kustomize configuration
 ├── Dockerfile                  # Container image build
 └── README.md                   # Comprehensive documentation
@@ -59,6 +63,7 @@ silence-manager/
 
 ### Key Features
 
+- **Kubernetes Service Discovery**: Automatically discovers Alertmanager services across all namespaces using the Kubernetes API
 - **Automatic Silence Extension**: When a ticket is open and the silence is about to expire
 - **Automatic Silence Deletion**: When a ticket is resolved
 - **Automatic Ticket Reopening**: When a ticket is closed but the alert refires
@@ -134,7 +139,12 @@ All configuration is via environment variables (see pkg/config/config.go):
 - `JIRA_PROJECT_KEY`: Default Jira project key
 
 **Optional:**
-- `ALERTMANAGER_URL`: Alertmanager URL (default: http://alertmanager:9093)
+- `ALERTMANAGER_URL`: Alertmanager URL (if not set, auto-discovery is enabled)
+- `ALERTMANAGER_AUTO_DISCOVER`: Enable auto-discovery (default: true when URL is empty)
+- `ALERTMANAGER_DISCOVERY_SERVICE_NAME`: Service name pattern for discovery (default: alertmanager)
+- `ALERTMANAGER_DISCOVERY_SERVICE_LABEL`: Label selector for discovery (default: app=alertmanager)
+- `ALERTMANAGER_DISCOVERY_PORT`: Port for discovered services (default: 9093)
+- `ALERTMANAGER_DISCOVERY_NAMESPACES`: Comma-separated list of preferred namespaces (default: monitoring,default)
 - `ALERTMANAGER_AUTH_TYPE`: Authentication type - "none", "basic", or "bearer" (default: none)
 - `ALERTMANAGER_USERNAME`: Username for basic auth
 - `ALERTMANAGER_PASSWORD`: Password for basic auth
@@ -167,4 +177,45 @@ All configuration is via environment variables (see pkg/config/config.go):
 - Ticket interface: `pkg/ticket/types.go:33`
 - Jira client: `pkg/ticket/jira.go:14`
 - Synchronization logic: `pkg/sync/sync.go:32`
+- Kubernetes service discovery: `pkg/k8s/discovery.go:20`
 - Configuration: `pkg/config/config.go:10`
+
+## Kubernetes Service Discovery
+
+The application includes automatic service discovery for Alertmanager using the Kubernetes API:
+
+### How It Works
+
+1. When `ALERTMANAGER_URL` is not set (or empty), auto-discovery is automatically enabled
+2. The application uses in-cluster Kubernetes credentials to query the API
+3. It searches for services matching either:
+   - A label selector (default: `app=alertmanager`)
+   - A name pattern (default: contains `alertmanager`)
+4. Search order:
+   - Preferred namespaces first (default: `monitoring`, `default`)
+   - All other namespaces if not found in preferred namespaces
+5. The first matching service is selected and used
+
+### RBAC Requirements
+
+The service account requires the following cluster-wide permissions:
+- `get`, `list` on `services` and `endpoints`
+- `get`, `list` on `namespaces`
+
+These are defined in:
+- ClusterRole: `deployments/clusterrole.yaml`
+- ClusterRoleBinding: `deployments/clusterrolebinding.yaml`
+
+### Discovery Configuration
+
+Discovery behavior can be customized through environment variables:
+- `ALERTMANAGER_DISCOVERY_SERVICE_NAME`: Service name pattern to match
+- `ALERTMANAGER_DISCOVERY_SERVICE_LABEL`: Label selector for matching services
+- `ALERTMANAGER_DISCOVERY_PORT`: Port to use (default: 9093)
+- `ALERTMANAGER_DISCOVERY_NAMESPACES`: Comma-separated list of preferred namespaces
+
+### Disabling Auto-Discovery
+
+To use a specific Alertmanager URL instead of auto-discovery:
+1. Set `ALERTMANAGER_URL` environment variable in the CronJob
+2. Auto-discovery will be automatically disabled when a URL is provided

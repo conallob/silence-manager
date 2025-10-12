@@ -21,6 +21,7 @@ This design allows for easy extension to support additional systems in the futur
 
 ## Features
 
+- **Kubernetes-native service discovery** - Automatically discovers Alertmanager across all namespaces
 - Automatic silence extension for open tickets
 - Automatic silence deletion for resolved tickets
 - Automatic ticket reopening and silence recreation for refired alerts
@@ -38,6 +39,7 @@ silence-manager/
 │   ├── alertmanager/        # Alertmanager interface and Prometheus implementation
 │   ├── ticket/              # Ticket interface and Jira implementation
 │   ├── sync/                # Synchronization logic
+│   ├── k8s/                 # Kubernetes service discovery
 │   └── config/              # Configuration management
 ├── deployments/             # Kubernetes manifests
 ├── Dockerfile               # Container image build
@@ -71,11 +73,23 @@ The application is configured via environment variables:
 
 | Variable | Description | Default |
 |----------|-------------|---------|
-| `ALERTMANAGER_URL` | Alertmanager URL | `http://alertmanager:9093` |
+| `ALERTMANAGER_URL` | Alertmanager URL (if not set, auto-discovery is enabled) | *(empty - auto-discovery)* |
+| `ALERTMANAGER_AUTO_DISCOVER` | Enable auto-discovery (automatically enabled when URL is empty) | `true` when URL is empty |
+| `ALERTMANAGER_DISCOVERY_SERVICE_NAME` | Service name pattern to match for discovery | `alertmanager` |
+| `ALERTMANAGER_DISCOVERY_SERVICE_LABEL` | Label selector for service discovery | `app=alertmanager` |
+| `ALERTMANAGER_DISCOVERY_PORT` | Port to use for discovered services | `9093` |
+| `ALERTMANAGER_DISCOVERY_NAMESPACES` | Comma-separated list of preferred namespaces to search first | `monitoring,default` |
 | `ALERTMANAGER_AUTH_TYPE` | Authentication type: `none`, `basic`, or `bearer` | `none` |
 | `ALERTMANAGER_USERNAME` | Username for basic auth | - |
 | `ALERTMANAGER_PASSWORD` | Password for basic auth | - |
 | `ALERTMANAGER_BEARER_TOKEN` | Bearer token for token auth | - |
+
+**Auto-Discovery Behavior:**
+- When `ALERTMANAGER_URL` is not set, the application will automatically search for Alertmanager services across all namespaces
+- Discovery searches first in preferred namespaces (`monitoring`, `default` by default), then all other namespaces
+- Services are matched by label selector (`app=alertmanager`) or by name pattern (`alertmanager`)
+- The first matching service found is used
+- All discovered services are logged for visibility
 
 #### Sync Configuration
 
@@ -275,13 +289,23 @@ Set `alertmanager-auth-type` to:
 kubectl apply -k deployments/
 ```
 
+This will deploy:
+- ServiceAccount for the CronJob
+- ClusterRole and ClusterRoleBinding for Kubernetes service discovery
+- ConfigMap with configuration settings
+- CronJob that runs every 15 minutes
+
 Or apply manifests individually:
 
 ```bash
 kubectl apply -f deployments/serviceaccount.yaml
+kubectl apply -f deployments/clusterrole.yaml
+kubectl apply -f deployments/clusterrolebinding.yaml
 kubectl apply -f deployments/configmap.yaml
 kubectl apply -f deployments/cronjob.yaml
 ```
+
+**Note:** The default configuration uses **auto-discovery** to find Alertmanager services across all namespaces. If you prefer to specify an explicit URL, uncomment and set the `ALERTMANAGER_URL` environment variable in `deployments/cronjob.yaml`.
 
 ### 5. Update CronJob Image
 
