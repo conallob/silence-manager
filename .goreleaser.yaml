@@ -74,8 +74,8 @@ changelog:
     - title: Others
       order: 999
 
-# Docker images configuration using dockers_v2
-dockers_v2:
+# Docker images configuration using deprecated v1 format
+dockers:
   - id: silence-manager
     use: buildx
     goos: linux
@@ -109,7 +109,7 @@ dockers_v2:
     dockerfile: Dockerfile.goreleaser
 
 # Create multi-arch manifests
-docker_manifests_v2:
+docker_manifests:
   - name_template: "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/silence-manager:{{ .Version }}"
     image_templates:
       - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/silence-manager:{{ .Version }}-amd64"
