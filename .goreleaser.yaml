@@ -19,7 +19,7 @@ builds:
     # Build for Linux and macOS on amd64 and arm64
     goos:
       - linux
-      - darwin
+      # - darwin
     goarch:
       - amd64
       - arm64
