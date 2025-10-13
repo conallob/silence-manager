@@ -12,7 +12,8 @@ before:
 builds:
   - id: silence-manager
     main: ./cmd/silence-manager
-    binary: silence-manager
+    # Name binary output by OS and CPU architecture
+    binary: "silence-manager_{{ .Os }}_{{ .Arch }}"
     env:
       - CGO_ENABLED=0
     # Build for Linux and macOS on amd64 and arm64
@@ -30,7 +31,6 @@ builds:
 
 archives:
   - id: silence-manager
-    format: tar.gz
     # this name template makes the OS and Arch compatible with the results of uname.
     name_template: >-
       {{ .ProjectName }}_
@@ -39,10 +39,6 @@ archives:
       {{- else if eq .Arch "386" }}i386
       {{- else }}{{ .Arch }}{{ end }}
       {{- if .Arm }}v{{ .Arm }}{{ end }}
-    # use zip for windows archives
-    format_overrides:
-      - goos: windows
-        format: zip
     files:
       - LICENSE
       - README.md
@@ -78,10 +74,9 @@ changelog:
     - title: Others
       order: 999
 
-# Docker images configuration
-dockers:
-  # Build for amd64
-  - id: silence-manager-amd64
+# Docker images configuration using dockers_v2
+dockers_v2:
+  - id: silence-manager
     use: buildx
     goos: linux
     goarch: amd64
@@ -97,7 +92,6 @@ dockers:
       - "--label=org.opencontainers.image.source={{.GitURL}}"
     dockerfile: Dockerfile.goreleaser
 
-  # Build for arm64
   - id: silence-manager-arm64
     use: buildx
     goos: linux
@@ -114,8 +108,8 @@ dockers:
       - "--label=org.opencontainers.image.source={{.GitURL}}"
     dockerfile: Dockerfile.goreleaser
 
-# Create multi-arch manifest
-docker_manifests:
+# Create multi-arch manifests
+docker_manifests_v2:
   - name_template: "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/silence-manager:{{ .Version }}"
     image_templates:
       - "ghcr.io/{{ .Env.GITHUB_REPOSITORY_OWNER }}/silence-manager:{{ .Version }}-amd64"
