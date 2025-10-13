@@ -11,9 +11,9 @@ before:
 
 builds:
   - id: silence-manager
-    main: ./cmd/silence-manager
-    # Name binary output by OS and CPU architecture
-    binary: "silence-manager_{{ .Os }}_{{ .Arch }}"
+    main: ./cmd/silence-manager/
+    # Simple binary name (archives will add OS/Arch automatically)
+    binary: silence-manager
     env:
       - CGO_ENABLED=0
     # Build for Linux and macOS on amd64 and arm64
