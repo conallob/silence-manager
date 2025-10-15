@@ -11,7 +11,7 @@ before:
 
 builds:
   - id: silence-manager
-    main: ./cmd/silence-manager/
+    main: ./cmd/silence-manager/main.go
     # Simple binary name (archives will add OS/Arch automatically)
     binary: silence-manager
     env:
