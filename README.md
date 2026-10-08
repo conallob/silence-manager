@@ -87,7 +87,7 @@ Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `E
 | `LINEAR_TEAM_ID` | UUID of the team new issues are created in | `00000000-0000-0000-0000-000000000000` |
 | `LINEAR_API_URL` | Optional GraphQL endpoint override (credentials are sent to this URL) | `https://api.linear.app/graphql` |
 
-Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, `completed` is resolved and `canceled` is closed. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
+Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, and `completed` and `canceled` are both resolved, so the silence is deleted when an issue is completed or canceled. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
 
 ### Required Configuration (Pylon)
 

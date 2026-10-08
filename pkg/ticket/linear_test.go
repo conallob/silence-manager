@@ -105,7 +105,7 @@ func TestLinearMapStateType(t *testing.T) {
 	l := NewLinearTicketSystem("", "k", "t", "")
 	tests := map[string]TicketStatus{
 		"triage": StatusOpen, "backlog": StatusOpen, "unstarted": StatusOpen,
-		"started": StatusInProgress, "completed": StatusResolved, "canceled": StatusClosed,
+		"started": StatusInProgress, "completed": StatusResolved, "canceled": StatusResolved,
 	}
 	for in, want := range tests {
 		if got := l.mapLinearStateType(in); got != want {
@@ -264,5 +264,16 @@ func TestLinearUpdateTicket(t *testing.T) {
 	l := NewLinearTicketSystem(srv.URL, "lin_api_key", "team", "")
 	if err := l.UpdateTicket(&Ticket{Key: "ENG-5", Summary: "New", Description: "body", SilenceRef: "s2"}); err != nil {
 		t.Errorf("UpdateTicket: %v", err)
+	}
+}
+
+func TestTruncateBody(t *testing.T) {
+	short := []byte("short")
+	if got := truncateBody(short); got != "short" {
+		t.Errorf("Short bodies should be unchanged, got %q", got)
+	}
+	long := []byte(strings.Repeat("x", 5000))
+	if got := truncateBody(long); len(got) > 1100 || !strings.HasSuffix(got, "(truncated)") {
+		t.Errorf("Expected truncated body, got %d bytes", len(got))
 	}
 }

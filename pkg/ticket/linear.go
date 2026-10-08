@@ -133,7 +133,7 @@ func (l *LinearTicketSystem) do(query string, vars map[string]any, out any) erro
 		return fmt.Errorf("linear API error: %s", strings.Join(msgs, "; "))
 	}
 	if resp.StatusCode != http.StatusOK {
-		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBody))
+		return fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, truncateBody(respBody))
 	}
 	if decodeErr != nil {
 		return fmt.Errorf("failed to decode response: %w", decodeErr)
@@ -354,10 +354,11 @@ func (l *LinearTicketSystem) mapLinearStateType(stateType string) TicketStatus {
 	switch stateType {
 	case "started":
 		return StatusInProgress
-	case "completed":
+	case "completed", "canceled":
+		// A canceled issue is finished as far as the alert is concerned, so
+		// its silence is deleted just like a completed one. CloseTicket also
+		// falls back to a canceled state when a team has no completed state.
 		return StatusResolved
-	case "canceled":
-		return StatusClosed
 	default: // triage, backlog, unstarted
 		return StatusOpen
 	}

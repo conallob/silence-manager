@@ -99,7 +99,7 @@ func (p *PylonTicketSystem) do(method, path string, body, out any) (int, error) 
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
 		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
-		return resp.StatusCode, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBody))
+		return resp.StatusCode, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, truncateBody(respBody))
 	}
 	if out != nil {
 		if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(out); err != nil {

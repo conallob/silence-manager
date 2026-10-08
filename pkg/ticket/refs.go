@@ -8,6 +8,15 @@ import (
 // maxResponseBytes bounds how much of an API response is read into memory
 const maxResponseBytes = 4 << 20
 
+// truncateBody shortens an API response body for inclusion in an error message
+func truncateBody(b []byte) string {
+	const max = 1024
+	if len(b) <= max {
+		return string(b)
+	}
+	return string(b[:max]) + "...(truncated)"
+}
+
 // extractSilenceRef extracts the silence reference from a ticket description.
 // The reference is a line of the form "prefix: silence-id"; it is normally the
 // first line, but any line is accepted so that content added before it (for
