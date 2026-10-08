@@ -22,10 +22,19 @@ func extractSilenceRef(description, prefix string) string {
 	return ""
 }
 
-// withSilenceRef prepends the silence reference annotation to a description
+// withSilenceRef prepends the silence reference annotation to a description,
+// first dropping any existing annotation line so that a description read back
+// from the ticket system does not accumulate duplicates on update.
 func withSilenceRef(description, silenceRef, prefix string) string {
 	if silenceRef == "" {
 		return description
 	}
-	return fmt.Sprintf("%s: %s\n\n%s", prefix, silenceRef, description)
+	marker := prefix + ": "
+	var kept []string
+	for _, line := range strings.Split(description, "\n") {
+		if !strings.HasPrefix(strings.TrimSpace(line), marker) {
+			kept = append(kept, line)
+		}
+	}
+	return fmt.Sprintf("%s: %s\n\n%s", prefix, silenceRef, strings.TrimLeft(strings.Join(kept, "\n"), "\n"))
 }

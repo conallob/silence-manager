@@ -203,6 +203,7 @@ All configuration is via environment variables (see pkg/config/config.go):
 - Jira client: `pkg/ticket/jira.go:14`
 - Linear client: `pkg/ticket/linear.go`
 - Pylon client: `pkg/ticket/pylon.go`
+- Shared silence-reference helpers: `pkg/ticket/refs.go`
 - Synchronization logic: `pkg/sync/sync.go:25`
 - Metrics interface: `pkg/metrics/types.go:6`
 - Pushgateway client: `pkg/metrics/pushgateway.go:12`

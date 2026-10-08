@@ -36,3 +36,14 @@ func TestSharedWithSilenceRef(t *testing.T) {
 		t.Error("Annotation should round-trip")
 	}
 }
+
+func TestSharedWithSilenceRef_ReplacesExistingAnnotation(t *testing.T) {
+	existing := withSilenceRef("body", "old", "p")
+	updated := withSilenceRef(existing, "new", "p")
+	if updated != "p: new\n\nbody" {
+		t.Errorf("Expected the old annotation to be replaced, got %q", updated)
+	}
+	if again := withSilenceRef(updated, "new", "p"); again != updated {
+		t.Errorf("Annotating twice should be idempotent, got %q", again)
+	}
+}
