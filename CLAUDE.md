@@ -201,6 +201,8 @@ All configuration is via environment variables (see pkg/config/config.go):
 - Prometheus client: `pkg/alertmanager/prometheus.go:13`
 - Ticket interface: `pkg/ticket/types.go:33`
 - Jira client: `pkg/ticket/jira.go:14`
+- Linear client: `pkg/ticket/linear.go`
+- Pylon client: `pkg/ticket/pylon.go`
 - Synchronization logic: `pkg/sync/sync.go:25`
 - Metrics interface: `pkg/metrics/types.go:6`
 - Pushgateway client: `pkg/metrics/pushgateway.go:12`

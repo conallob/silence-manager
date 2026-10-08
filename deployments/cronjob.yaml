@@ -114,6 +114,12 @@ spec:
                   name: silence-manager-config
                   key: pylon-account-id
                   optional: true
+            - name: PYLON_REQUESTER_EMAIL
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: pylon-requester-email
+                  optional: true
 
             # Sync Configuration
             - name: SYNC_ANNOTATION_PREFIX

@@ -250,3 +250,19 @@ func TestLinearClose_StateFailureSkipsComment(t *testing.T) {
 		t.Error("Comment must not be posted when the state change fails")
 	}
 }
+
+func TestLinearUpdateTicket(t *testing.T) {
+	srv, _ := linearServer(t, map[string]func(map[string]any) string{
+		"issueUpdate": func(vars map[string]any) string {
+			input := vars["input"].(map[string]any)
+			if vars["id"] != "ENG-5" || input["title"] != "New" || input["description"] != "silence-manager: s2\n\nbody" {
+				t.Errorf("Unexpected update: %v", vars)
+			}
+			return `{"data":{"issueUpdate":{"success":true}}}`
+		},
+	})
+	l := NewLinearTicketSystem(srv.URL, "lin_api_key", "team", "")
+	if err := l.UpdateTicket(&Ticket{Key: "ENG-5", Summary: "New", Description: "body", SilenceRef: "s2"}); err != nil {
+		t.Errorf("UpdateTicket: %v", err)
+	}
+}

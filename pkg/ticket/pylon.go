@@ -102,7 +102,7 @@ func (p *PylonTicketSystem) do(method, path string, body, out any) (int, error) 
 		return resp.StatusCode, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBody))
 	}
 	if out != nil {
-		if err := json.NewDecoder(resp.Body).Decode(out); err != nil {
+		if err := json.NewDecoder(io.LimitReader(resp.Body, maxResponseBytes)).Decode(out); err != nil {
 			return resp.StatusCode, fmt.Errorf("failed to decode response: %w", err)
 		}
 	}

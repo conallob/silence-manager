@@ -18,6 +18,7 @@ data:
 
   # Pylon Configuration (ticket-system: pylon)
   # pylon-account-id: "your-pylon-account-id"
+  # pylon-requester-email: "oncall@example.com"  # Alternative to pylon-account-id
 
   # Sync Configuration
   sync-annotation-prefix: "silence-manager"

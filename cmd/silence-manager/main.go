@@ -93,6 +93,7 @@ func main() {
 			cfg.Sync.AnnotationPrefix,
 		)
 	case config.TicketSystemPylon:
+		log.Println("Warning: the Pylon integration is experimental and has not been verified against a live workspace")
 		ts = ticket.NewPylonTicketSystem(
 			cfg.Pylon.APIURL,
 			cfg.Pylon.APIToken,
