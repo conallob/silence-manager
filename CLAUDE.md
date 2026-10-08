@@ -30,7 +30,10 @@ silence-manager/
 │   │   └── prometheus.go       # Prometheus Alertmanager client
 │   ├── ticket/                 # Ticket interface and implementations
 │   │   ├── types.go            # Interface definitions and common types
-│   │   └── jira.go             # Jira ticket system client
+│   │   ├── jira.go             # Jira ticket system client
+│   │   ├── linear.go           # Linear ticket system client (GraphQL)
+│   │   ├── pylon.go            # Pylon ticket system client
+│   │   └── refs.go             # Shared silence-reference annotation helpers
 │   ├── sync/                   # Core synchronization logic
 │   │   └── sync.go             # Synchronizer implementation
 │   ├── metrics/                # Metrics publishing
@@ -58,7 +61,7 @@ silence-manager/
 
 1. **Alertmanager Integration**: Uses Prometheus Alertmanager API v2 for all operations (GET, POST, DELETE silences and alerts)
 
-2. **Ticket Tracking Integration**: Initial support for Atlassian Jira using API v3 with basic authentication
+2. **Ticket Tracking Integration**: Atlassian Jira (API v3, basic auth), Linear (GraphQL, API key) and Pylon (REST, bearer token), selected via `TICKET_SYSTEM`
 
 3. **Synchronization Strategy**: Polling-based approach running as a Kubernetes CronJob (default: every 15 minutes)
 
@@ -138,7 +141,12 @@ go run ./cmd/silence-manager
 
 All configuration is via environment variables (see pkg/config/config.go):
 
-**Required:**
+**Ticket system:**
+- `TICKET_SYSTEM`: `jira` (default), `linear` or `pylon`; only the selected system's variables are required
+- Linear: `LINEAR_API_KEY`, `LINEAR_TEAM_ID` (optional `LINEAR_API_URL`)
+- Pylon: `PYLON_API_TOKEN`, `PYLON_ACCOUNT_ID` or `PYLON_REQUESTER_EMAIL` (optional `PYLON_API_URL`)
+
+**Required for Jira (default):**
 - `JIRA_URL`: Jira instance URL
 - `JIRA_USERNAME`: Jira username/email
 - `JIRA_API_TOKEN`: Jira API token

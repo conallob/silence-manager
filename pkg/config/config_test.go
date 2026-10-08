@@ -411,6 +411,8 @@ func TestGetEnvBool_InvalidValue(t *testing.T) {
 func cleanEnv() {
 	vars := []string{
 		"JIRA_URL", "JIRA_USERNAME", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY",
+		"TICKET_SYSTEM", "LINEAR_API_URL", "LINEAR_API_KEY", "LINEAR_TEAM_ID",
+		"PYLON_API_URL", "PYLON_API_TOKEN", "PYLON_ACCOUNT_ID", "PYLON_REQUESTER_EMAIL",
 		"ALERTMANAGER_URL", "ALERTMANAGER_AUTO_DISCOVER", "ALERTMANAGER_AUTH_TYPE",
 		"ALERTMANAGER_USERNAME", "ALERTMANAGER_PASSWORD", "ALERTMANAGER_BEARER_TOKEN",
 		"ALERTMANAGER_DISCOVERY_SERVICE_NAME", "ALERTMANAGER_DISCOVERY_SERVICE_LABEL",
@@ -420,5 +422,41 @@ func cleanEnv() {
 	}
 	for _, v := range vars {
 		os.Unsetenv(v)
+	}
+}
+
+func TestLoadConfig_TicketSystems(t *testing.T) {
+	tests := []struct {
+		name    string
+		env     map[string]string
+		want    string
+		wantErr bool
+	}{
+		{"default is jira", map[string]string{"JIRA_URL": "u", "JIRA_USERNAME": "n", "JIRA_API_TOKEN": "t", "JIRA_PROJECT_KEY": "P"}, "jira", false},
+		{"linear", map[string]string{"TICKET_SYSTEM": "Linear", "LINEAR_API_KEY": "k", "LINEAR_TEAM_ID": "team"}, "linear", false},
+		{"linear without team", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_API_KEY": "k"}, "", true},
+		{"linear without key", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_TEAM_ID": "team"}, "", true},
+		{"pylon with account", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_API_TOKEN": "t", "PYLON_ACCOUNT_ID": "a"}, "pylon", false},
+		{"pylon with requester email", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_API_TOKEN": "t", "PYLON_REQUESTER_EMAIL": "a@b.c"}, "pylon", false},
+		{"pylon without token", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_ACCOUNT_ID": "a"}, "", true},
+		{"pylon without account", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_API_TOKEN": "t"}, "", true},
+		{"unknown", map[string]string{"TICKET_SYSTEM": "trello"}, "", true},
+		{"jira vars not required for linear", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_API_KEY": "k", "LINEAR_TEAM_ID": "t"}, "linear", false},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanEnv()
+			defer cleanEnv()
+			for k, v := range tt.env {
+				os.Setenv(k, v)
+			}
+			cfg, err := LoadConfig()
+			if (err != nil) != tt.wantErr {
+				t.Fatalf("LoadConfig() error = %v, wantErr %v", err, tt.wantErr)
+			}
+			if err == nil && cfg.TicketSystem != tt.want {
+				t.Errorf("TicketSystem = %q, want %q", cfg.TicketSystem, tt.want)
+			}
+		})
 	}
 }

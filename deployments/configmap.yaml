@@ -7,8 +7,17 @@ data:
   # Alertmanager Configuration
   alertmanager-auth-type: "none"  # Options: "none", "basic", "bearer"
 
+  # Ticket system: "jira" (default), "linear" or "pylon"
+  # ticket-system: "jira"
+
   # Jira Configuration
   jira-project-key: "OPS"
+
+  # Linear Configuration (ticket-system: linear)
+  # linear-team-id: "00000000-0000-0000-0000-000000000000"
+
+  # Pylon Configuration (ticket-system: pylon)
+  # pylon-account-id: "your-pylon-account-id"
 
   # Sync Configuration
   sync-annotation-prefix: "silence-manager"

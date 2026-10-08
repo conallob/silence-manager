@@ -53,27 +53,67 @@ spec:
                   key: alertmanager-bearer-token
                   optional: true
 
-            # Jira Configuration
+            # Ticket System Configuration (jira, linear or pylon; default: jira)
+            - name: TICKET_SYSTEM
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: ticket-system
+                  optional: true
+
+            # Jira Configuration (TICKET_SYSTEM=jira)
             - name: JIRA_URL
               valueFrom:
                 secretKeyRef:
                   name: silence-manager-secrets
                   key: jira-url
+                  optional: true
             - name: JIRA_USERNAME
               valueFrom:
                 secretKeyRef:
                   name: silence-manager-secrets
                   key: jira-username
+                  optional: true
             - name: JIRA_API_TOKEN
               valueFrom:
                 secretKeyRef:
                   name: silence-manager-secrets
                   key: jira-api-token
+                  optional: true
             - name: JIRA_PROJECT_KEY
               valueFrom:
                 configMapKeyRef:
                   name: silence-manager-config
                   key: jira-project-key
+                  optional: true
+
+            # Linear Configuration (TICKET_SYSTEM=linear)
+            - name: LINEAR_API_KEY
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: linear-api-key
+                  optional: true
+            - name: LINEAR_TEAM_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: linear-team-id
+                  optional: true
+
+            # Pylon Configuration (TICKET_SYSTEM=pylon)
+            - name: PYLON_API_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: pylon-api-token
+                  optional: true
+            - name: PYLON_ACCOUNT_ID
+              valueFrom:
+                configMapKeyRef:
+                  name: silence-manager-config
+                  key: pylon-account-id
+                  optional: true
 
             # Sync Configuration
             - name: SYNC_ANNOTATION_PREFIX

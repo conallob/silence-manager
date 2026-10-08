@@ -54,13 +54,21 @@ silence-manager/
 - Docker (for building container images)
 - Kubernetes cluster
 - Prometheus Alertmanager instance
-- Jira account with API token
+- An account with API access to a supported ticket system: Jira, Linear or Pylon
 
 ## Configuration
 
 The application is configured via environment variables:
 
-### Required Configuration
+### Ticket System Selection
+
+| Variable | Description | Default |
+|----------|-------------|---------|
+| `TICKET_SYSTEM` | Ticket system to sync with: `jira`, `linear` or `pylon` | `jira` |
+
+Only the variables for the selected ticket system are required.
+
+### Required Configuration (Jira)
 
 | Variable | Description | Example |
 |----------|-------------|---------|
@@ -68,6 +76,31 @@ The application is configured via environment variables:
 | `JIRA_USERNAME` | Jira username (email) | `admin@example.com` |
 | `JIRA_API_TOKEN` | Jira API token | `your-api-token` |
 | `JIRA_PROJECT_KEY` | Jira project key | `OPS` |
+
+### Required Configuration (Linear)
+
+Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `ENG-123`).
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `LINEAR_API_KEY` | Linear personal API key (use `Bearer <token>` for OAuth tokens) | `lin_api_xxxxxxxx` |
+| `LINEAR_TEAM_ID` | UUID of the team new issues are created in | `00000000-0000-0000-0000-000000000000` |
+| `LINEAR_API_URL` | Optional GraphQL endpoint override | `https://api.linear.app/graphql` |
+
+State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, `completed` is resolved and `canceled` is closed. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
+
+### Required Configuration (Pylon)
+
+Set `TICKET_SYSTEM=pylon`. Tickets are referenced by Pylon issue number (e.g. `1234`).
+
+| Variable | Description | Example |
+|----------|-------------|---------|
+| `PYLON_API_TOKEN` | Pylon API token (Settings > API) | `your-api-token` |
+| `PYLON_ACCOUNT_ID` | Account new issues are created for (or set `PYLON_REQUESTER_EMAIL`) | `account-id` |
+| `PYLON_REQUESTER_EMAIL` | Requester email, alternative to `PYLON_ACCOUNT_ID` | `oncall@example.com` |
+| `PYLON_API_URL` | Optional API base URL override | `https://api.usepylon.com` |
+
+State mapping: `new` and custom states are open, `waiting_on_you`/`waiting_on_customer`/`on_hold` are in progress and `closed` is closed. Pylon has no separate resolved state, so a silence is deleted when the issue is closed. Comments are posted as internal notes, never as customer-visible replies.
 
 ### Optional Configuration
 

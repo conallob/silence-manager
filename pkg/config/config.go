@@ -11,7 +11,10 @@ import (
 // Config represents the application configuration
 type Config struct {
 	Alertmanager AlertmanagerConfig
+	TicketSystem string // "jira" (default), "linear" or "pylon"
 	Jira         JiraConfig
+	Linear       LinearConfig
+	Pylon        PylonConfig
 	Sync         SyncConfig
 	Metrics      MetricsConfig
 }
@@ -38,6 +41,28 @@ type JiraConfig struct {
 	APIToken   string
 	ProjectKey string
 }
+
+// LinearConfig holds Linear-specific configuration
+type LinearConfig struct {
+	APIURL string // Optional override of the GraphQL endpoint
+	APIKey string
+	TeamID string // UUID of the team new issues are created in
+}
+
+// PylonConfig holds Pylon-specific configuration
+type PylonConfig struct {
+	APIURL         string // Optional override of the API base URL
+	APIToken       string
+	AccountID      string // Account new issues are created for
+	RequesterEmail string // Alternative to AccountID
+}
+
+// Supported ticket systems
+const (
+	TicketSystemJira   = "jira"
+	TicketSystemLinear = "linear"
+	TicketSystemPylon  = "pylon"
+)
 
 // SyncConfig holds synchronization configuration
 type SyncConfig struct {
@@ -87,11 +112,23 @@ func LoadConfig() (*Config, error) {
 			DiscoveryPort:         getEnvInt("ALERTMANAGER_DISCOVERY_PORT", 9093),
 			DiscoveryNamespaces:   getEnvSlice("ALERTMANAGER_DISCOVERY_NAMESPACES", []string{"monitoring", "default"}),
 		},
+		TicketSystem: strings.ToLower(getEnv("TICKET_SYSTEM", TicketSystemJira)),
 		Jira: JiraConfig{
 			URL:        getEnv("JIRA_URL", ""),
 			Username:   getEnv("JIRA_USERNAME", ""),
 			APIToken:   getEnv("JIRA_API_TOKEN", ""),
 			ProjectKey: getEnv("JIRA_PROJECT_KEY", ""),
+		},
+		Linear: LinearConfig{
+			APIURL: getEnv("LINEAR_API_URL", ""),
+			APIKey: getEnv("LINEAR_API_KEY", ""),
+			TeamID: getEnv("LINEAR_TEAM_ID", ""),
+		},
+		Pylon: PylonConfig{
+			APIURL:         getEnv("PYLON_API_URL", ""),
+			APIToken:       getEnv("PYLON_API_TOKEN", ""),
+			AccountID:      getEnv("PYLON_ACCOUNT_ID", ""),
+			RequesterEmail: getEnv("PYLON_REQUESTER_EMAIL", ""),
 		},
 		Sync: SyncConfig{
 			ExpiryThresholdHours:        getEnvInt("SYNC_EXPIRY_THRESHOLD_HOURS", 24),
@@ -114,18 +151,37 @@ func LoadConfig() (*Config, error) {
 		},
 	}
 
-	// Validate required fields
-	if cfg.Jira.URL == "" {
-		return nil, fmt.Errorf("JIRA_URL is required")
-	}
-	if cfg.Jira.Username == "" {
-		return nil, fmt.Errorf("JIRA_USERNAME is required")
-	}
-	if cfg.Jira.APIToken == "" {
-		return nil, fmt.Errorf("JIRA_API_TOKEN is required")
-	}
-	if cfg.Jira.ProjectKey == "" {
-		return nil, fmt.Errorf("JIRA_PROJECT_KEY is required")
+	// Validate required fields for the selected ticket system
+	switch cfg.TicketSystem {
+	case TicketSystemJira:
+		if cfg.Jira.URL == "" {
+			return nil, fmt.Errorf("JIRA_URL is required")
+		}
+		if cfg.Jira.Username == "" {
+			return nil, fmt.Errorf("JIRA_USERNAME is required")
+		}
+		if cfg.Jira.APIToken == "" {
+			return nil, fmt.Errorf("JIRA_API_TOKEN is required")
+		}
+		if cfg.Jira.ProjectKey == "" {
+			return nil, fmt.Errorf("JIRA_PROJECT_KEY is required")
+		}
+	case TicketSystemLinear:
+		if cfg.Linear.APIKey == "" {
+			return nil, fmt.Errorf("LINEAR_API_KEY is required when TICKET_SYSTEM is 'linear'")
+		}
+		if cfg.Linear.TeamID == "" {
+			return nil, fmt.Errorf("LINEAR_TEAM_ID is required when TICKET_SYSTEM is 'linear'")
+		}
+	case TicketSystemPylon:
+		if cfg.Pylon.APIToken == "" {
+			return nil, fmt.Errorf("PYLON_API_TOKEN is required when TICKET_SYSTEM is 'pylon'")
+		}
+		if cfg.Pylon.AccountID == "" && cfg.Pylon.RequesterEmail == "" {
+			return nil, fmt.Errorf("PYLON_ACCOUNT_ID or PYLON_REQUESTER_EMAIL is required when TICKET_SYSTEM is 'pylon'")
+		}
+	default:
+		return nil, fmt.Errorf("invalid TICKET_SYSTEM: %s (must be 'jira', 'linear', or 'pylon')", cfg.TicketSystem)
 	}
 
 	// Validate alertmanager auth configuration
