@@ -99,7 +99,7 @@ func TestPylonCloseAndReopen(t *testing.T) {
 	if err := p.ReopenTicket("5", ""); err != nil {
 		t.Fatalf("ReopenTicket: %v", err)
 	}
-	want := "POST /issues/5/note|PATCH /issues/5|closed|PATCH /issues/5|new"
+	want := "PATCH /issues/5|closed|POST /issues/5/note|PATCH /issues/5|new"
 	if got := strings.Join(calls, "|"); got != want {
 		t.Errorf("calls = %s, want %s", got, want)
 	}
@@ -145,5 +145,34 @@ func TestPylonHTMLRoundTrip(t *testing.T) {
 	got = p.convertFromPylonIssue(&pylonIssue{BodyHTML: "<p>Hi team</p><br/><div>silence-manager: sil-2</div>"})
 	if got.SilenceRef != "sil-2" {
 		t.Errorf("Expected sil-2, got %q", got.SilenceRef)
+	}
+}
+
+func TestPylonClose_CommentFailureIsNotAnError(t *testing.T) {
+	p := pylonServer(t, func(w http.ResponseWriter, r *http.Request, _ map[string]any) {
+		if strings.HasSuffix(r.URL.Path, "/note") {
+			w.WriteHeader(http.StatusInternalServerError)
+			return
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	if err := p.ReopenTicket("5", "alert refired"); err != nil {
+		t.Errorf("A failed note after a successful state change should not fail the reopen: %v", err)
+	}
+}
+
+func TestPylonClose_StateFailureSkipsComment(t *testing.T) {
+	noted := false
+	p := pylonServer(t, func(w http.ResponseWriter, r *http.Request, _ map[string]any) {
+		if strings.HasSuffix(r.URL.Path, "/note") {
+			noted = true
+		}
+		w.WriteHeader(http.StatusInternalServerError)
+	})
+	if err := p.CloseTicket("5", "bye"); err == nil {
+		t.Error("Expected error when the state change fails")
+	}
+	if noted {
+		t.Error("Note must not be posted when the state change fails")
 	}
 }

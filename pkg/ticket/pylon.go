@@ -6,6 +6,7 @@ import (
 	"fmt"
 	"html"
 	"io"
+	"log"
 	"net/http"
 	"net/url"
 	"regexp"
@@ -97,7 +98,7 @@ func (p *PylonTicketSystem) do(method, path string, body, out any) (int, error) 
 	defer resp.Body.Close()
 
 	if resp.StatusCode < 200 || resp.StatusCode > 299 {
-		respBody, _ := io.ReadAll(resp.Body)
+		respBody, _ := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 		return resp.StatusCode, fmt.Errorf("unexpected status code %d: %s", resp.StatusCode, string(respBody))
 	}
 	if out != nil {
@@ -156,24 +157,35 @@ func (p *PylonTicketSystem) UpdateTicket(ticket *Ticket) error {
 	return nil
 }
 
-// ReopenTicket reopens a closed ticket by moving it back to the "new" state
+// ReopenTicket reopens a closed ticket by moving it back to the "new" state.
+// The state is changed before the comment is posted so that a failed state
+// change does not leave a comment that would be posted again on the next run.
 func (p *PylonTicketSystem) ReopenTicket(key string, comment string) error {
-	if comment != "" {
-		if err := p.AddComment(key, comment); err != nil {
-			return fmt.Errorf("failed to add comment: %w", err)
-		}
+	if err := p.setState(key, "new"); err != nil {
+		return err
 	}
-	return p.setState(key, "new")
+	p.commentBestEffort(key, comment)
+	return nil
 }
 
 // CloseTicket marks a ticket as closed
 func (p *PylonTicketSystem) CloseTicket(key string, comment string) error {
-	if comment != "" {
-		if err := p.AddComment(key, comment); err != nil {
-			return fmt.Errorf("failed to add comment: %w", err)
-		}
+	if err := p.setState(key, "closed"); err != nil {
+		return err
 	}
-	return p.setState(key, "closed")
+	p.commentBestEffort(key, comment)
+	return nil
+}
+
+// commentBestEffort posts a note after a successful state change; a failure is
+// logged rather than returned because the state change cannot be undone.
+func (p *PylonTicketSystem) commentBestEffort(key, comment string) {
+	if comment == "" {
+		return
+	}
+	if err := p.AddComment(key, comment); err != nil {
+		log.Printf("Warning: failed to add comment to Pylon ticket %s: %v", key, err)
+	}
 }
 
 // AddComment adds an internal note to a ticket (never visible to the customer)

@@ -5,6 +5,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"log"
 	"net/http"
 	"strings"
 	"time"
@@ -111,7 +112,7 @@ func (l *LinearTicketSystem) do(query string, vars map[string]any, out any) erro
 	}
 	defer resp.Body.Close()
 
-	respBody, err := io.ReadAll(resp.Body)
+	respBody, err := io.ReadAll(io.LimitReader(resp.Body, maxResponseBytes))
 	if err != nil {
 		return fmt.Errorf("failed to read response: %w", err)
 	}
@@ -197,32 +198,43 @@ func (l *LinearTicketSystem) UpdateTicket(ticket *Ticket) error {
 	return l.updateIssue(ticket.Key, input)
 }
 
-// ReopenTicket reopens a closed/resolved ticket
+// ReopenTicket reopens a closed/resolved ticket. The state is changed before
+// the comment is posted so that a failed state change is not left with a
+// comment that would be posted again on the next run.
 func (l *LinearTicketSystem) ReopenTicket(key string, comment string) error {
-	if comment != "" {
-		if err := l.AddComment(key, comment); err != nil {
-			return fmt.Errorf("failed to add comment: %w", err)
-		}
-	}
 	state, err := l.findState(key, "unstarted", "backlog")
 	if err != nil {
 		return err
 	}
-	return l.updateIssue(key, map[string]any{"stateId": state.ID})
+	if err := l.updateIssue(key, map[string]any{"stateId": state.ID}); err != nil {
+		return err
+	}
+	l.commentBestEffort(key, comment)
+	return nil
 }
 
 // CloseTicket marks a ticket as closed
 func (l *LinearTicketSystem) CloseTicket(key string, comment string) error {
-	if comment != "" {
-		if err := l.AddComment(key, comment); err != nil {
-			return fmt.Errorf("failed to add comment: %w", err)
-		}
-	}
 	state, err := l.findState(key, "completed", "canceled")
 	if err != nil {
 		return err
 	}
-	return l.updateIssue(key, map[string]any{"stateId": state.ID})
+	if err := l.updateIssue(key, map[string]any{"stateId": state.ID}); err != nil {
+		return err
+	}
+	l.commentBestEffort(key, comment)
+	return nil
+}
+
+// commentBestEffort posts a comment after a successful state change; a failure
+// is logged rather than returned because the state change cannot be undone.
+func (l *LinearTicketSystem) commentBestEffort(key, comment string) {
+	if comment == "" {
+		return
+	}
+	if err := l.AddComment(key, comment); err != nil {
+		log.Printf("Warning: failed to add comment to Linear ticket %s: %v", key, err)
+	}
 }
 
 // AddComment adds a comment to a ticket

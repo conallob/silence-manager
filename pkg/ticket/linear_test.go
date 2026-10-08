@@ -169,8 +169,9 @@ func TestLinearCloseAndReopen(t *testing.T) {
 	if len(updated) != 2 || updated[0] != "done" || updated[1] != "todo" {
 		t.Errorf("Expected states [done todo], got %v", updated)
 	}
-	if (*seen)[0] != "commentCreate" {
-		t.Errorf("Expected comment before state change, got %v", *seen)
+	// State changes come first so a failure never leaves an orphaned comment
+	if got := strings.Join((*seen)[:3], ","); got != "states {,issueUpdate,commentCreate" {
+		t.Errorf("Expected state change before comment, got %v", *seen)
 	}
 }
 
@@ -226,5 +227,26 @@ func TestLinearFindState_Fallbacks(t *testing.T) {
 	}
 	if s, err := l.findState("ENG-1", "unstarted", "backlog"); err != nil || s.ID != "b" {
 		t.Errorf("Expected backlog fallback, got %+v, %v", s, err)
+	}
+}
+
+func TestLinearClose_StateFailureSkipsComment(t *testing.T) {
+	commented := false
+	srv, _ := linearServer(t, map[string]func(map[string]any) string{
+		"states {": func(map[string]any) string {
+			return `{"data":{"issue":{"team":{"id":"t","states":{"nodes":[{"id":"d","name":"Done","type":"completed","position":0}]}}}}}`
+		},
+		"issueUpdate": func(map[string]any) string { return `{"errors":[{"message":"boom"}]}` },
+		"commentCreate": func(map[string]any) string {
+			commented = true
+			return `{"data":{"commentCreate":{"success":true}}}`
+		},
+	})
+	l := NewLinearTicketSystem(srv.URL, "lin_api_key", "team", "")
+	if err := l.CloseTicket("ENG-1", "note"); err == nil {
+		t.Error("Expected error when the state change fails")
+	}
+	if commented {
+		t.Error("Comment must not be posted when the state change fails")
 	}
 }

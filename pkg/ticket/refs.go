@@ -5,6 +5,9 @@ import (
 	"strings"
 )
 
+// maxResponseBytes bounds how much of an API response is read into memory
+const maxResponseBytes = 4 << 20
+
 // extractSilenceRef extracts the silence reference from a ticket description.
 // The reference is a line of the form "prefix: silence-id"; it is normally the
 // first line, but any line is accepted so that content added before it (for
