@@ -6,17 +6,17 @@ import (
 )
 
 // extractSilenceRef extracts the silence reference from a ticket description.
-// The reference is expected on the first line in the form "prefix: silence-id".
+// The reference is a line of the form "prefix: silence-id"; it is normally the
+// first line, but any line is accepted so that content added before it (for
+// example by a ticket system's editor) does not unlink the ticket.
 func extractSilenceRef(description, prefix string) string {
 	marker := prefix + ": "
-	if !strings.HasPrefix(description, marker) {
-		return ""
+	for _, line := range strings.Split(description, "\n") {
+		if rest, ok := strings.CutPrefix(strings.TrimSpace(line), marker); ok {
+			return strings.TrimSpace(rest)
+		}
 	}
-	rest := description[len(marker):]
-	if i := strings.IndexByte(rest, '\n'); i >= 0 {
-		rest = rest[:i]
-	}
-	return strings.TrimSpace(rest)
+	return ""
 }
 
 // withSilenceRef prepends the silence reference annotation to a description

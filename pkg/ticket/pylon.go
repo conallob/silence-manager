@@ -20,7 +20,8 @@ const DefaultPylonAPIURL = "https://api.usepylon.com"
 //
 // Pylon issues are identified by their issue number (e.g. "1234"), which is
 // used as the ticket key. Pylon only has a single terminal state ("closed"),
-// so IsResolved is never true; closed issues are reported as StatusClosed.
+// which is reported as StatusResolved so that the synchronizer deletes the
+// silence, as it does for Done tickets in Jira.
 type PylonTicketSystem struct {
 	baseURL          string
 	apiToken         string
@@ -184,8 +185,7 @@ func (p *PylonTicketSystem) AddComment(key string, comment string) error {
 	return nil
 }
 
-// IsResolved checks if a ticket is in a resolved state. Pylon has no separate
-// resolved state, so this is always false.
+// IsResolved checks if a ticket is in a resolved state (a closed Pylon issue)
 func (p *PylonTicketSystem) IsResolved(ticket *Ticket) bool {
 	return ticket.Status == StatusResolved
 }
@@ -242,7 +242,7 @@ func (p *PylonTicketSystem) convertFromPylonIssue(pi *pylonIssue) *Ticket {
 func (p *PylonTicketSystem) mapPylonState(state string) TicketStatus {
 	switch strings.ToLower(state) {
 	case "closed":
-		return StatusClosed
+		return StatusResolved
 	case "waiting_on_you", "waiting_on_customer", "on_hold":
 		return StatusInProgress
 	default: // new and custom states

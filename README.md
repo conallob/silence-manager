@@ -87,9 +87,11 @@ Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `E
 | `LINEAR_TEAM_ID` | UUID of the team new issues are created in | `00000000-0000-0000-0000-000000000000` |
 | `LINEAR_API_URL` | Optional GraphQL endpoint override | `https://api.linear.app/graphql` |
 
-State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, `completed` is resolved and `canceled` is closed. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
+Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, `completed` is resolved and `canceled` is closed. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
 
 ### Required Configuration (Pylon)
+
+> **Experimental:** the Pylon integration has not yet been verified against a live workspace.
 
 Set `TICKET_SYSTEM=pylon`. Tickets are referenced by Pylon issue number (e.g. `1234`).
 
@@ -100,7 +102,7 @@ Set `TICKET_SYSTEM=pylon`. Tickets are referenced by Pylon issue number (e.g. `1
 | `PYLON_REQUESTER_EMAIL` | Requester email, alternative to `PYLON_ACCOUNT_ID` | `oncall@example.com` |
 | `PYLON_API_URL` | Optional API base URL override | `https://api.usepylon.com` |
 
-State mapping: `new` and custom states are open, `waiting_on_you`/`waiting_on_customer`/`on_hold` are in progress and `closed` is closed. Pylon has no separate resolved state, so a silence is deleted when the issue is closed. Comments are posted as internal notes, never as customer-visible replies.
+State mapping: `new` and custom states are open, `waiting_on_you`/`waiting_on_customer`/`on_hold` are in progress and `closed` is closed. Pylon has no separate resolved state, so a closed issue is treated as resolved and its silence is deleted. Comments are posted as internal notes, never as customer-visible replies.
 
 ### Optional Configuration
 

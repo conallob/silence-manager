@@ -109,15 +109,18 @@ func TestPylonMapState(t *testing.T) {
 	p := NewPylonTicketSystem("", "t", "a", "", "")
 	tests := map[string]TicketStatus{
 		"new": StatusOpen, "custom": StatusOpen, "on_hold": StatusInProgress,
-		"waiting_on_customer": StatusInProgress, "closed": StatusClosed,
+		"waiting_on_customer": StatusInProgress, "closed": StatusResolved,
 	}
 	for in, want := range tests {
 		if got := p.mapPylonState(in); got != want {
 			t.Errorf("mapPylonState(%q) = %s, want %s", in, got, want)
 		}
 	}
-	if p.IsResolved(&Ticket{Status: StatusClosed}) || !p.IsClosed(&Ticket{Status: StatusClosed}) {
-		t.Error("Closed ticket should be closed but not resolved")
+	// The synchronizer deletes silences when IsResolved is true, so a closed
+	// Pylon issue must count as resolved.
+	closed := &Ticket{Status: p.mapPylonState("closed")}
+	if !p.IsResolved(closed) || !p.IsClosed(closed) || p.IsOpen(closed) {
+		t.Error("Closed Pylon issue should be resolved and closed, not open")
 	}
 }
 
@@ -127,5 +130,20 @@ func TestPylonErrorStatus(t *testing.T) {
 	})
 	if err := p.AddComment("1", "x"); err == nil || !strings.Contains(err.Error(), "403") {
 		t.Errorf("Expected 403 error, got %v", err)
+	}
+}
+
+func TestPylonHTMLRoundTrip(t *testing.T) {
+	p := NewPylonTicketSystem("", "t", "a", "", "")
+	built := p.buildBodyHTML(&Ticket{Description: "line one\nline & two", SilenceRef: "sil-1"})
+	got := p.convertFromPylonIssue(&pylonIssue{BodyHTML: built})
+	if got.SilenceRef != "sil-1" || !strings.Contains(got.Description, "line & two") {
+		t.Errorf("Round trip lost data: %+v", got)
+	}
+
+	// Content ahead of the reference must not unlink the ticket
+	got = p.convertFromPylonIssue(&pylonIssue{BodyHTML: "<p>Hi team</p><br/><div>silence-manager: sil-2</div>"})
+	if got.SilenceRef != "sil-2" {
+		t.Errorf("Expected sil-2, got %q", got.SilenceRef)
 	}
 }

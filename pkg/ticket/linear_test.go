@@ -197,3 +197,34 @@ func TestLinearHTTPError(t *testing.T) {
 		t.Errorf("Expected 401 error, got %v", err)
 	}
 }
+
+func TestLinearGraphQLError_NonOKStatus(t *testing.T) {
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		w.WriteHeader(http.StatusBadRequest)
+		_, _ = w.Write([]byte(`{"errors":[{"message":"Variable \"$id\" is invalid"}]}`))
+	}))
+	defer srv.Close()
+	l := NewLinearTicketSystem(srv.URL, "k", "team", "")
+	err := l.AddComment("ENG-1", "x")
+	if err == nil || !strings.Contains(err.Error(), "is invalid") {
+		t.Errorf("Expected GraphQL error message to surface, got %v", err)
+	}
+}
+
+func TestLinearFindState_Fallbacks(t *testing.T) {
+	// No completed or unstarted states: fall back to canceled and backlog
+	srv, _ := linearServer(t, map[string]func(map[string]any) string{
+		"states {": func(map[string]any) string {
+			return `{"data":{"issue":{"team":{"id":"t","states":{"nodes":[
+				{"id":"b","name":"Backlog","type":"backlog","position":0},
+				{"id":"c","name":"Canceled","type":"canceled","position":1}]}}}}}`
+		},
+	})
+	l := NewLinearTicketSystem(srv.URL, "lin_api_key", "team", "")
+	if s, err := l.findState("ENG-1", "completed", "canceled"); err != nil || s.ID != "c" {
+		t.Errorf("Expected canceled fallback, got %+v, %v", s, err)
+	}
+	if s, err := l.findState("ENG-1", "unstarted", "backlog"); err != nil || s.ID != "b" {
+		t.Errorf("Expected backlog fallback, got %+v, %v", s, err)
+	}
+}
