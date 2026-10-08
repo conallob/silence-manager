@@ -30,8 +30,7 @@ func main() {
 	}
 
 	log.Printf("Configuration loaded successfully")
-	log.Printf("Jira URL: %s", cfg.Jira.URL)
-	log.Printf("Jira Project: %s", cfg.Jira.ProjectKey)
+	log.Printf("Ticket system: %s", cfg.TicketSystem)
 
 	// Determine Alertmanager URL (auto-discovery or explicit)
 	alertmanagerURL := cfg.Alertmanager.URL
@@ -73,15 +72,39 @@ func main() {
 	})
 	log.Println("Initialized Prometheus Alertmanager client")
 
-	// Initialize Jira client
-	ts := ticket.NewJiraTicketSystem(
-		cfg.Jira.URL,
-		cfg.Jira.Username,
-		cfg.Jira.APIToken,
-		cfg.Jira.ProjectKey,
-		cfg.Sync.AnnotationPrefix,
-	)
-	log.Println("Initialized Jira ticket system client")
+	// Initialize ticket system client
+	var ts ticket.TicketSystem
+	switch cfg.TicketSystem {
+	case config.TicketSystemJira:
+		log.Printf("Jira URL: %s, project: %s", cfg.Jira.URL, cfg.Jira.ProjectKey)
+		ts = ticket.NewJiraTicketSystem(
+			cfg.Jira.URL,
+			cfg.Jira.Username,
+			cfg.Jira.APIToken,
+			cfg.Jira.ProjectKey,
+			cfg.Sync.AnnotationPrefix,
+		)
+	case config.TicketSystemLinear:
+		log.Printf("Linear team: %s", cfg.Linear.TeamID)
+		ts = ticket.NewLinearTicketSystem(
+			cfg.Linear.APIURL,
+			cfg.Linear.APIKey,
+			cfg.Linear.TeamID,
+			cfg.Sync.AnnotationPrefix,
+		)
+	case config.TicketSystemPylon:
+		log.Println("Warning: the Pylon integration is experimental and has not been verified against a live workspace")
+		ts = ticket.NewPylonTicketSystem(
+			cfg.Pylon.APIURL,
+			cfg.Pylon.APIToken,
+			cfg.Pylon.AccountID,
+			cfg.Pylon.RequesterEmail,
+			cfg.Sync.AnnotationPrefix,
+		)
+	default:
+		log.Fatalf("Unknown ticket system: %s", cfg.TicketSystem)
+	}
+	log.Printf("Initialized %s ticket system client", cfg.TicketSystem)
 
 	// Create synchronizer
 	expiryThreshold, extensionDuration, defaultSilenceDuration := cfg.GetSyncDurations()
