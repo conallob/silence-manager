@@ -44,7 +44,8 @@ func TestPylonGetTicket(t *testing.T) {
 	if err != nil {
 		t.Fatalf("GetTicket: %v", err)
 	}
-	if tkt.Key != "42" || tkt.SilenceRef != "sil-9" || tkt.Status != StatusInProgress {
+	// The ID is the key, since Pylon documents only the ID for updates and notes
+	if tkt.Key != "abc" || tkt.SilenceRef != "sil-9" || tkt.Status != StatusInProgress {
 		t.Errorf("Unexpected ticket: %+v", tkt)
 	}
 	if !strings.Contains(tkt.Description, "Some & details") || tkt.Assignee != "a@b.c" {
@@ -78,7 +79,7 @@ func TestPylonCreateTicket(t *testing.T) {
 		_, _ = w.Write([]byte(`{"data":{"id":"abc","number":7}}`))
 	})
 	key, err := p.CreateTicket(&Ticket{Summary: "Alert", Description: "a <b>", SilenceRef: "s1"})
-	if err != nil || key != "7" {
+	if err != nil || key != "abc" {
 		t.Errorf("CreateTicket = %q, %v", key, err)
 	}
 }
@@ -174,5 +175,30 @@ func TestPylonClose_StateFailureSkipsComment(t *testing.T) {
 	}
 	if noted {
 		t.Error("Note must not be posted when the state change fails")
+	}
+}
+
+func TestPylonUpdateTicket_TitleOnly(t *testing.T) {
+	p := pylonServer(t, func(w http.ResponseWriter, r *http.Request, body map[string]any) {
+		if r.Method != http.MethodPatch || r.URL.Path != "/issues/abc" {
+			t.Errorf("Unexpected request %s %s", r.Method, r.URL.Path)
+		}
+		// Pylon's update API has no body_html field, so it must not be sent
+		if _, ok := body["body_html"]; ok || body["title"] != "New title" {
+			t.Errorf("Unexpected body: %v", body)
+		}
+		_, _ = w.Write([]byte(`{}`))
+	})
+	if err := p.UpdateTicket(&Ticket{Key: "abc", Summary: "New title", Description: "ignored", SilenceRef: "s"}); err != nil {
+		t.Errorf("UpdateTicket: %v", err)
+	}
+}
+
+func TestPylonKeyPrefersID(t *testing.T) {
+	if got := pylonKey(&pylonIssue{ID: "abc", Number: 7}); got != "abc" {
+		t.Errorf("Expected ID, got %q", got)
+	}
+	if got := pylonKey(&pylonIssue{Number: 7}); got != "7" {
+		t.Errorf("Expected number fallback, got %q", got)
 	}
 }

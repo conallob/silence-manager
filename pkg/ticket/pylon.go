@@ -19,10 +19,11 @@ const DefaultPylonAPIURL = "https://api.usepylon.com"
 
 // PylonTicketSystem implements the TicketSystem interface for Pylon (usepylon.com).
 //
-// Pylon issues are identified by their issue number (e.g. "1234"), which is
-// used as the ticket key. Pylon only has a single terminal state ("closed"),
-// which is reported as StatusResolved so that the synchronizer deletes the
-// silence, as it does for Done tickets in Jira.
+// GetTicket accepts either the issue number shown in the Pylon UI (e.g. "1234")
+// or the issue ID, but Pylon documents only the ID for updates and notes, so
+// the ID is used as the ticket key from then on. Pylon only has a single
+// terminal state ("closed"), which is reported as StatusResolved so that the
+// synchronizer deletes the silence, as it does for Done tickets in Jira.
 type PylonTicketSystem struct {
 	baseURL          string
 	apiToken         string
@@ -109,7 +110,7 @@ func (p *PylonTicketSystem) do(method, path string, body, out any) (int, error) 
 	return resp.StatusCode, nil
 }
 
-// GetTicket retrieves a ticket by its issue number
+// GetTicket retrieves a ticket by its issue number or ID
 func (p *PylonTicketSystem) GetTicket(key string) (*Ticket, error) {
 	var result pylonIssueResponse
 	status, err := p.do(http.MethodGet, "/issues/"+url.PathEscape(key), nil, &result)
@@ -122,7 +123,7 @@ func (p *PylonTicketSystem) GetTicket(key string) (*Ticket, error) {
 	return p.convertFromPylonIssue(&result.Data), nil
 }
 
-// CreateTicket creates a new ticket and returns its issue number
+// CreateTicket creates a new ticket and returns its issue ID
 func (p *PylonTicketSystem) CreateTicket(ticket *Ticket) (string, error) {
 	body := map[string]any{
 		"title":     ticket.Summary,
@@ -145,12 +146,11 @@ func (p *PylonTicketSystem) CreateTicket(ticket *Ticket) (string, error) {
 	return pylonKey(&result.Data), nil
 }
 
-// UpdateTicket updates the title and body of an existing ticket
+// UpdateTicket updates the title of an existing ticket. Pylon's update API
+// cannot change an issue's body, so the description (and with it the silence
+// reference written at creation) is left untouched.
 func (p *PylonTicketSystem) UpdateTicket(ticket *Ticket) error {
-	body := map[string]any{
-		"title":     ticket.Summary,
-		"body_html": p.buildBodyHTML(ticket),
-	}
+	body := map[string]any{"title": ticket.Summary}
 	if _, err := p.do(http.MethodPatch, "/issues/"+url.PathEscape(ticket.Key), body, nil); err != nil {
 		return fmt.Errorf("failed to update ticket: %w", err)
 	}
@@ -221,11 +221,13 @@ func (p *PylonTicketSystem) setState(key, state string) error {
 	return nil
 }
 
+// pylonKey returns the key used for all follow-up calls: the issue ID, which
+// is the identifier Pylon documents for updates and notes.
 func pylonKey(pi *pylonIssue) string {
-	if pi.Number > 0 {
-		return fmt.Sprintf("%d", pi.Number)
+	if pi.ID != "" {
+		return pi.ID
 	}
-	return pi.ID
+	return fmt.Sprintf("%d", pi.Number)
 }
 
 func (p *PylonTicketSystem) convertFromPylonIssue(pi *pylonIssue) *Ticket {

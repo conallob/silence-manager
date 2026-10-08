@@ -87,22 +87,22 @@ Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `E
 | `LINEAR_TEAM_ID` | UUID of the team new issues are created in | `00000000-0000-0000-0000-000000000000` |
 | `LINEAR_API_URL` | Optional GraphQL endpoint override (credentials are sent to this URL) | `https://api.linear.app/graphql` |
 
-Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, and `completed` and `canceled` are both resolved, so the silence is deleted when an issue is completed or canceled. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
+Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, and `completed`, `canceled` and `duplicate` are all resolved, so the silence is deleted when an issue is completed, canceled or marked as a duplicate. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
 
 ### Required Configuration (Pylon)
 
-> **Experimental:** the Pylon integration has not yet been verified against a live workspace.
+> **Experimental:** the Pylon integration has been checked against Pylon's published OpenAPI specification but not yet exercised against a live workspace.
 
-Set `TICKET_SYSTEM=pylon`. Tickets are referenced by Pylon issue number (e.g. `1234`).
+Set `TICKET_SYSTEM=pylon`. Reference a ticket in a silence comment by the issue number shown in Pylon (e.g. `1234`) or by its issue ID. Pylon documents only the ID for updates and notes, so the ID is used for all follow-up calls and for silences created automatically when an alert refires.
 
 | Variable | Description | Example |
 |----------|-------------|---------|
 | `PYLON_API_TOKEN` | Pylon API token (Settings > API) | `your-api-token` |
 | `PYLON_ACCOUNT_ID` | Account new issues are created for (or set `PYLON_REQUESTER_EMAIL`) | `account-id` |
 | `PYLON_REQUESTER_EMAIL` | Requester email, alternative to `PYLON_ACCOUNT_ID` | `oncall@example.com` |
-| `PYLON_API_URL` | Optional API base URL override (credentials are sent to this URL) | `https://api.usepylon.com` |
+| `PYLON_API_URL` | Optional API base URL override, e.g. for the EU region (credentials are sent to this URL) | `https://api.eu.usepylon.com` |
 
-State mapping: `new` and custom states are open, `waiting_on_you`/`waiting_on_customer`/`on_hold` are in progress and `closed` is closed. Pylon has no separate resolved state, so a closed issue is treated as resolved: its silence is deleted, and if the alert refires the issue is reopened and a new silence created, as for a resolved Jira ticket. Comments are posted as internal notes, never as customer-visible replies.
+State mapping: `new` and custom states are open, `waiting_on_you`/`waiting_on_customer`/`on_hold` are in progress and `closed` is closed. Pylon has no separate resolved state, so a closed issue is treated as resolved: its silence is deleted, and if the alert refires the issue is reopened and a new silence created, as for a resolved Jira ticket. Comments are posted as internal notes, never as customer-visible replies. Pylon's update API can only change an issue's title, tags and similar fields, not its body, so the silence reference is written once when the issue is created by silence-manager and is never rewritten. For an existing issue, link it from the silence comment as above.
 
 ### Optional Configuration
 

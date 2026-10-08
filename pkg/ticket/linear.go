@@ -354,10 +354,11 @@ func (l *LinearTicketSystem) mapLinearStateType(stateType string) TicketStatus {
 	switch stateType {
 	case "started":
 		return StatusInProgress
-	case "completed", "canceled":
-		// A canceled issue is finished as far as the alert is concerned, so
-		// its silence is deleted just like a completed one. CloseTicket also
-		// falls back to a canceled state when a team has no completed state.
+	case "completed", "canceled", "duplicate":
+		// Canceled and duplicate issues are finished as far as the alert is
+		// concerned, so their silences are deleted just like a completed one.
+		// CloseTicket also falls back to a canceled state when a team has no
+		// completed state.
 		return StatusResolved
 	default: // triage, backlog, unstarted
 		return StatusOpen

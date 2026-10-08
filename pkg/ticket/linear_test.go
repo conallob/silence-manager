@@ -105,7 +105,7 @@ func TestLinearMapStateType(t *testing.T) {
 	l := NewLinearTicketSystem("", "k", "t", "")
 	tests := map[string]TicketStatus{
 		"triage": StatusOpen, "backlog": StatusOpen, "unstarted": StatusOpen,
-		"started": StatusInProgress, "completed": StatusResolved, "canceled": StatusResolved,
+		"started": StatusInProgress, "completed": StatusResolved, "canceled": StatusResolved, "duplicate": StatusResolved,
 	}
 	for in, want := range tests {
 		if got := l.mapLinearStateType(in); got != want {
