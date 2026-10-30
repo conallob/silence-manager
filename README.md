@@ -50,7 +50,7 @@ silence-manager/
 
 ## Prerequisites
 
-- Go 1.26 or higher
+- Go 1.27 or higher
 - Docker (for building container images)
 - Kubernetes cluster
 - Prometheus Alertmanager instance
