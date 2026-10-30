@@ -123,6 +123,15 @@ Configuration files:
 go test ./...
 ```
 
+### Vulnerability Scanning
+
+CI runs `govulncheck` (`.github/workflows/vulncheck.yml`) on pull requests, on pushes to `main` and weekly. It fails when a known vulnerability is reachable from the code. To run it locally with the Go version from `go.mod`:
+
+```bash
+go install golang.org/x/vuln/cmd/govulncheck@latest
+govulncheck ./...
+```
+
 ### Running Locally
 
 ```bash
