@@ -23,7 +23,7 @@ The project has been fully implemented with the following components:
 
 ```
 silence-manager/
-├── cmd/silence-manager/        # Main application entry point
+├── cmd/silence-manager/        # Main application entry point (main.go) and ticket system wiring (ticketsystem.go)
 ├── pkg/
 │   ├── alertmanager/           # AlertManager interface and Prometheus implementation
 │   │   ├── types.go            # Interface definitions and common types
@@ -33,7 +33,7 @@ silence-manager/
 │   │   ├── jira.go             # Jira ticket system client
 │   │   ├── linear.go           # Linear ticket system client (GraphQL)
 │   │   ├── pylon.go            # Pylon ticket system client
-│   │   └── refs.go             # Shared silence-reference annotation helpers
+│   │   └── refs.go             # Shared silence-reference annotation helpers (used by all clients)
 │   ├── sync/                   # Core synchronization logic
 │   │   └── sync.go             # Synchronizer implementation
 │   ├── metrics/                # Metrics publishing
@@ -193,9 +193,9 @@ All configuration is via environment variables (see pkg/config/config.go):
 
 ### Adding a New Ticket System
 
-1. Implement the `ticket.TicketSystem` interface in `pkg/ticket/`
-2. Add configuration fields in `pkg/config/config.go`
-3. Update `cmd/silence-manager/main.go` to instantiate the new client based on config
+1. Implement the `ticket.TicketSystem` interface in `pkg/ticket/` (use the shared helpers in `refs.go` and the status predicates in `types.go`)
+2. Add configuration fields and a `TICKET_SYSTEM` value in `pkg/config/config.go`
+3. Add a case to `newTicketSystem` in `cmd/silence-manager/ticketsystem.go` and a wiring test in `ticketsystem_test.go`
 
 ### Adding a New Alertmanager System
 
@@ -206,6 +206,7 @@ All configuration is via environment variables (see pkg/config/config.go):
 ## File References
 
 - Main application: `cmd/silence-manager/main.go`
+- Ticket system construction: `cmd/silence-manager/ticketsystem.go`
 - AlertManager interface: `pkg/alertmanager/types.go:22`
 - Prometheus client: `pkg/alertmanager/prometheus.go:13`
 - Ticket interface: `pkg/ticket/types.go:33`

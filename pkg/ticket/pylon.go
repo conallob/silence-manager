@@ -199,17 +199,17 @@ func (p *PylonTicketSystem) AddComment(key string, comment string) error {
 
 // IsResolved checks if a ticket is in a resolved state (a closed Pylon issue)
 func (p *PylonTicketSystem) IsResolved(ticket *Ticket) bool {
-	return ticket.Status == StatusResolved
+	return statusIsResolved(ticket)
 }
 
 // IsClosed checks if a ticket is in a closed state
 func (p *PylonTicketSystem) IsClosed(ticket *Ticket) bool {
-	return ticket.Status == StatusClosed || ticket.Status == StatusResolved
+	return statusIsClosed(ticket)
 }
 
 // IsOpen checks if a ticket is in an open state
 func (p *PylonTicketSystem) IsOpen(ticket *Ticket) bool {
-	return ticket.Status == StatusOpen || ticket.Status == StatusInProgress
+	return statusIsOpen(ticket)
 }
 
 // Helper functions

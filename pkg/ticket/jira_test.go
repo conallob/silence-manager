@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"net/http"
 	"net/http/httptest"
+	"strings"
 	"testing"
 	"time"
 )
@@ -428,8 +429,6 @@ func TestMapJiraStatus(t *testing.T) {
 }
 
 func TestExtractSilenceRef(t *testing.T) {
-	jira := NewJiraTicketSystem("http://test.com", "user", "token", "PROJ", "silence-manager")
-
 	tests := []struct {
 		name        string
 		description string
@@ -460,11 +459,16 @@ func TestExtractSilenceRef(t *testing.T) {
 			description: "",
 			expected:    "",
 		},
+		{
+			name:        "Silence ref on a later line",
+			description: "Added by an editor\nsilence-manager: silence-321\nRest",
+			expected:    "silence-321",
+		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			result := jira.extractSilenceRef(tt.description)
+			result := extractSilenceRef(tt.description, "silence-manager")
 			if result != tt.expected {
 				t.Errorf("Expected '%s', got '%s'", tt.expected, result)
 			}
@@ -473,10 +477,8 @@ func TestExtractSilenceRef(t *testing.T) {
 }
 
 func TestExtractSilenceRef_CustomPrefix(t *testing.T) {
-	jira := NewJiraTicketSystem("http://test.com", "user", "token", "PROJ", "custom-prefix")
-
 	description := "custom-prefix: silence-999\nDescription"
-	result := jira.extractSilenceRef(description)
+	result := extractSilenceRef(description, "custom-prefix")
 
 	if result != "silence-999" {
 		t.Errorf("Expected 'silence-999', got '%s'", result)
@@ -579,5 +581,25 @@ func TestConvertToJiraIssue_WithoutSilenceRef(t *testing.T) {
 	descText := jira.extractDescriptionText(ji.Fields.Description)
 	if descText != "Original description" {
 		t.Errorf("Expected description 'Original description', got '%s'", descText)
+	}
+}
+
+func TestJiraConvert_RoundTripDoesNotDuplicateReference(t *testing.T) {
+	jira := NewJiraTicketSystem("http://test.com", "user", "token", "PROJ", "silence-manager")
+
+	// Write a ticket with a reference, read it back, then write it again as
+	// UpdateTicket does with a ticket obtained from GetTicket.
+	first := jira.convertToJiraIssue(&Ticket{Summary: "S", Description: "body", SilenceRef: "sil-1"})
+	read := jira.convertFromJiraIssue(&jiraIssue{Key: "PROJ-1", Fields: jiraFields{
+		Summary: "S", Description: first.Fields.Description,
+	}})
+	if read.SilenceRef != "sil-1" {
+		t.Fatalf("Expected sil-1 to be read back, got %q", read.SilenceRef)
+	}
+
+	second := jira.convertToJiraIssue(read)
+	text := jira.extractDescriptionText(second.Fields.Description)
+	if n := strings.Count(text, "silence-manager: "); n != 1 {
+		t.Errorf("Expected exactly one reference line after a round trip, got %d in %q", n, text)
 	}
 }

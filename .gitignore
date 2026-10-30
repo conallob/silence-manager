@@ -1,5 +1,5 @@
 # Binaries
-silence-manager
+/silence-manager
 *.exe
 *.exe~
 *.dll

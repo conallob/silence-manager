@@ -56,3 +56,23 @@ type TicketSystem interface {
 	// IsOpen checks if a ticket is in an open state (open or in progress)
 	IsOpen(ticket *Ticket) bool
 }
+
+// Status predicates shared by the ticket system implementations. Each
+// implementation maps its own states onto TicketStatus, so what counts as
+// resolved, closed or open is decided in one place.
+
+// statusIsResolved reports whether the ticket is done (the synchronizer
+// deletes the silence of a resolved ticket)
+func statusIsResolved(t *Ticket) bool {
+	return t.Status == StatusResolved
+}
+
+// statusIsClosed reports whether the ticket is closed or resolved
+func statusIsClosed(t *Ticket) bool {
+	return t.Status == StatusClosed || t.Status == StatusResolved
+}
+
+// statusIsOpen reports whether the ticket is open or in progress
+func statusIsOpen(t *Ticket) bool {
+	return t.Status == StatusOpen || t.Status == StatusInProgress
+}
