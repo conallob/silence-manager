@@ -33,7 +33,7 @@ silence-manager/
 │   │   ├── jira.go             # Jira ticket system client
 │   │   ├── linear.go           # Linear ticket system client (GraphQL)
 │   │   ├── pylon.go            # Pylon ticket system client
-│   │   └── refs.go             # Shared silence-reference annotation helpers
+│   │   └── refs.go             # Shared silence-reference annotation helpers (used by all clients)
 │   ├── sync/                   # Core synchronization logic
 │   │   └── sync.go             # Synchronizer implementation
 │   ├── metrics/                # Metrics publishing
