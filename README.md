@@ -470,8 +470,8 @@ The prefix can be customized using the `SYNC_ANNOTATION_PREFIX` environment vari
 ### Adding a New Ticket System
 
 1. Implement the `ticket.TicketSystem` interface in `pkg/ticket/`
-2. Add configuration for the new system in `pkg/config/`
-3. Update `cmd/silence-manager/main.go` to instantiate the new implementation
+2. Add configuration for the new system in `pkg/config/` (including a `TICKET_SYSTEM` value)
+3. Add a case to `newTicketSystem` in `cmd/silence-manager/ticketsystem.go` to instantiate the new implementation
 
 ### Adding a New Alertmanager Implementation
 
