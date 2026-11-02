@@ -9,7 +9,6 @@ import (
 	"github.com/conallob/silence-manager/pkg/k8s"
 	"github.com/conallob/silence-manager/pkg/metrics"
 	"github.com/conallob/silence-manager/pkg/sync"
-	"github.com/conallob/silence-manager/pkg/ticket"
 )
 
 var (
@@ -73,36 +72,9 @@ func main() {
 	log.Println("Initialized Prometheus Alertmanager client")
 
 	// Initialize ticket system client
-	var ts ticket.TicketSystem
-	switch cfg.TicketSystem {
-	case config.TicketSystemJira:
-		log.Printf("Jira URL: %s, project: %s", cfg.Jira.URL, cfg.Jira.ProjectKey)
-		ts = ticket.NewJiraTicketSystem(
-			cfg.Jira.URL,
-			cfg.Jira.Username,
-			cfg.Jira.APIToken,
-			cfg.Jira.ProjectKey,
-			cfg.Sync.AnnotationPrefix,
-		)
-	case config.TicketSystemLinear:
-		log.Printf("Linear team: %s", cfg.Linear.TeamID)
-		ts = ticket.NewLinearTicketSystem(
-			cfg.Linear.APIURL,
-			cfg.Linear.APIKey,
-			cfg.Linear.TeamID,
-			cfg.Sync.AnnotationPrefix,
-		)
-	case config.TicketSystemPylon:
-		log.Println("Warning: the Pylon integration is experimental and has not been verified against a live workspace")
-		ts = ticket.NewPylonTicketSystem(
-			cfg.Pylon.APIURL,
-			cfg.Pylon.APIToken,
-			cfg.Pylon.AccountID,
-			cfg.Pylon.RequesterEmail,
-			cfg.Sync.AnnotationPrefix,
-		)
-	default:
-		log.Fatalf("Unknown ticket system: %s", cfg.TicketSystem)
+	ts, err := newTicketSystem(cfg)
+	if err != nil {
+		log.Fatalf("Failed to initialize ticket system: %v", err)
 	}
 	log.Printf("Initialized %s ticket system client", cfg.TicketSystem)
 
