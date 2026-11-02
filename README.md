@@ -1,5 +1,13 @@
 # Silence Manager
 
+[![Test](https://github.com/conallob/silence-manager/actions/workflows/test.yml/badge.svg?branch=main)](https://github.com/conallob/silence-manager/actions/workflows/test.yml)
+[![Vulnerability Check](https://github.com/conallob/silence-manager/actions/workflows/vulncheck.yml/badge.svg?branch=main)](https://github.com/conallob/silence-manager/actions/workflows/vulncheck.yml)
+[![codecov](https://codecov.io/gh/conallob/silence-manager/branch/main/graph/badge.svg)](https://codecov.io/gh/conallob/silence-manager)
+[![Go](https://img.shields.io/github/go-mod/go-version/conallob/silence-manager)](https://github.com/conallob/silence-manager/blob/main/go.mod)
+[![Release](https://img.shields.io/github/v/release/conallob/silence-manager)](https://github.com/conallob/silence-manager/releases/latest)
+[![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
+[![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg?style=flat&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/conallob)
+
 A Kubernetes CronJob utility written in Golang that synchronizes Prometheus Alertmanager silences with ticket tracking systems (initially Jira).
 
 ## Overview
