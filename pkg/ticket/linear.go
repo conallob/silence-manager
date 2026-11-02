@@ -258,17 +258,17 @@ func (l *LinearTicketSystem) AddComment(key string, comment string) error {
 
 // IsResolved checks if a ticket is in a resolved state
 func (l *LinearTicketSystem) IsResolved(ticket *Ticket) bool {
-	return ticket.Status == StatusResolved
+	return statusIsResolved(ticket)
 }
 
 // IsClosed checks if a ticket is in a closed state
 func (l *LinearTicketSystem) IsClosed(ticket *Ticket) bool {
-	return ticket.Status == StatusClosed || ticket.Status == StatusResolved
+	return statusIsClosed(ticket)
 }
 
 // IsOpen checks if a ticket is in an open state
 func (l *LinearTicketSystem) IsOpen(ticket *Ticket) bool {
-	return ticket.Status == StatusOpen || ticket.Status == StatusInProgress
+	return statusIsOpen(ticket)
 }
 
 // Helper functions

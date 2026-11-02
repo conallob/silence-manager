@@ -328,17 +328,17 @@ func (j *JiraTicketSystem) AddComment(key string, comment string) error {
 
 // IsResolved checks if a ticket is in a resolved state
 func (j *JiraTicketSystem) IsResolved(ticket *Ticket) bool {
-	return ticket.Status == StatusResolved
+	return statusIsResolved(ticket)
 }
 
 // IsClosed checks if a ticket is in a closed state
 func (j *JiraTicketSystem) IsClosed(ticket *Ticket) bool {
-	return ticket.Status == StatusClosed || ticket.Status == StatusResolved
+	return statusIsClosed(ticket)
 }
 
 // IsOpen checks if a ticket is in an open state
 func (j *JiraTicketSystem) IsOpen(ticket *Ticket) bool {
-	return ticket.Status == StatusOpen || ticket.Status == StatusInProgress
+	return statusIsOpen(ticket)
 }
 
 // Helper functions
@@ -421,7 +421,7 @@ func (j *JiraTicketSystem) convertFromJiraIssue(ji *jiraIssue) *Ticket {
 	if ji.Fields.Description != nil {
 		ticket.Description = j.extractDescriptionText(ji.Fields.Description)
 		// Extract silence reference from description if present
-		ticket.SilenceRef = j.extractSilenceRef(ticket.Description)
+		ticket.SilenceRef = extractSilenceRef(ticket.Description, j.annotationPrefix)
 	}
 
 	if ji.Fields.Status != nil {
@@ -459,10 +459,7 @@ func (j *JiraTicketSystem) convertToJiraIssue(ticket *Ticket) *jiraIssue {
 	}
 
 	// Embed silence reference in description if present
-	description := ticket.Description
-	if ticket.SilenceRef != "" {
-		description = fmt.Sprintf("%s: %s\n\n%s", j.annotationPrefix, ticket.SilenceRef, description)
-	}
+	description := withSilenceRef(ticket.Description, ticket.SilenceRef, j.annotationPrefix)
 
 	ji.Fields.Description = j.createJiraDescription(description)
 
@@ -518,26 +515,4 @@ func (j *JiraTicketSystem) mapJiraStatus(status string) TicketStatus {
 	default:
 		return StatusOpen
 	}
-}
-
-// extractSilenceRef extracts the silence reference from a description
-func (j *JiraTicketSystem) extractSilenceRef(description string) string {
-	// Look for pattern "prefix: silence-id"
-	prefix := fmt.Sprintf("%s: ", j.annotationPrefix)
-	if len(description) < len(prefix) {
-		return ""
-	}
-
-	if description[:len(prefix)] == prefix {
-		// Extract until newline or end of string
-		rest := description[len(prefix):]
-		for i, c := range rest {
-			if c == '\n' {
-				return rest[:i]
-			}
-		}
-		return rest
-	}
-
-	return ""
 }
