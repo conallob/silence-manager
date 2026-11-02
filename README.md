@@ -8,7 +8,7 @@
 [![License](https://img.shields.io/badge/License-BSD%203--Clause-blue.svg)](LICENSE)
 [![Buy Me A Coffee](https://img.shields.io/badge/Buy%20Me%20A%20Coffee-support-yellow.svg?style=flat&logo=buy-me-a-coffee)](https://www.buymeacoffee.com/conallob)
 
-A Kubernetes CronJob utility written in Golang that synchronizes Prometheus Alertmanager silences with ticket tracking systems (initially Jira).
+A Kubernetes CronJob utility written in Golang that synchronizes Prometheus Alertmanager silences with ticket tracking systems: Jira, plus experimental support for Linear and Pylon.
 
 ## Overview
 
@@ -23,7 +23,7 @@ Silence Manager ensures that Alertmanager silences and tracking tickets remain s
 The application uses abstract interfaces to support multiple alertmanager and ticket system implementations:
 
 - **AlertManager Interface**: Abstracts alertmanager operations (currently supports Prometheus Alertmanager)
-- **Ticket System Interface**: Abstracts ticket operations (currently supports Atlassian Jira)
+- **Ticket System Interface**: Abstracts ticket operations (currently supports Atlassian Jira, Linear and Pylon; see [Supported Ticket Systems](#supported-ticket-systems))
 
 This design allows for easy extension to support additional systems in the future.
 
@@ -31,6 +31,7 @@ This design allows for easy extension to support additional systems in the futur
 
 - **Kubernetes-native service discovery** - Automatically discovers Alertmanager across all namespaces
 - **Optional metrics publishing** - Publish metrics to Prometheus Pushgateway or OpenTelemetry Collector (disabled by default)
+- **Multiple ticket systems** - Jira, Linear and Pylon, selected with `TICKET_SYSTEM`
 - Automatic silence extension for open tickets
 - Automatic silence deletion for resolved tickets
 - Automatic ticket reopening and silence recreation for refired alerts
@@ -38,15 +39,27 @@ This design allows for easy extension to support additional systems in the futur
 - Runs as a Kubernetes CronJob
 - Comprehensive logging
 
+## Supported Ticket Systems
+
+Select the ticket system with the `TICKET_SYSTEM` environment variable (default: `jira`). Only the variables for the selected system are required; see [Configuration](#configuration).
+
+| System | `TICKET_SYSTEM` | Status | Ticket reference in a silence comment |
+|--------|-----------------|--------|----------------------------------------|
+| [Jira](https://www.atlassian.com/software/jira) | `jira` (default) | Supported | Issue key, e.g. `OPS-123` |
+| [Linear](https://linear.app) | `linear` | **Experimental** | Issue identifier, e.g. `ENG-123` |
+| [Pylon](https://www.usepylon.com) | `pylon` | **Experimental** | Issue number (e.g. `1234`) or issue ID |
+
+> **Experimental** means the integration is implemented and unit tested, and its API calls have been checked against the vendor's published API documentation, but it has not yet been exercised against a live workspace. Expect rough edges, and please report any you hit. Jira is the original, fully supported integration.
+
 ## Project Structure
 
 ```
 silence-manager/
 ├── cmd/
-│   └── silence-manager/    # Main application entry point
+│   └── silence-manager/    # Main application entry point and ticket system wiring
 ├── pkg/
 │   ├── alertmanager/        # Alertmanager interface and Prometheus implementation
-│   ├── ticket/              # Ticket interface and Jira implementation
+│   ├── ticket/              # Ticket interface and Jira, Linear and Pylon implementations
 │   ├── sync/                # Synchronization logic
 │   ├── metrics/             # Metrics publishing (Pushgateway, OTel)
 │   ├── k8s/                 # Kubernetes service discovery
@@ -86,6 +99,8 @@ Only the variables for the selected ticket system are required.
 | `JIRA_PROJECT_KEY` | Jira project key | `OPS` |
 
 ### Required Configuration (Linear)
+
+> **Experimental:** the Linear integration has been checked against Linear's published GraphQL schema and developer documentation but not yet exercised against a live workspace.
 
 Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `ENG-123`).
 
@@ -286,7 +301,9 @@ You have multiple options for managing secrets:
 
 #### Option A: kubectl (Simple)
 
-Create a secret with your credentials:
+Create a secret with your credentials for the ticket system you selected.
+
+For Jira (the default):
 
 ```bash
 kubectl create secret generic silence-manager-secrets \
@@ -296,7 +313,25 @@ kubectl create secret generic silence-manager-secrets \
   -n monitoring
 ```
 
-If your Alertmanager requires authentication:
+For Linear (experimental):
+
+```bash
+kubectl create secret generic silence-manager-secrets \
+  --from-literal=linear-api-key=lin_api_xxxxxxxx \
+  -n monitoring
+```
+
+For Pylon (experimental):
+
+```bash
+kubectl create secret generic silence-manager-secrets \
+  --from-literal=pylon-api-token=your-api-token \
+  -n monitoring
+```
+
+Non-secret settings such as `ticket-system`, `linear-team-id` and `pylon-account-id` go in the ConfigMap (see [Configure Settings](#3-configure-settings)).
+
+If your Alertmanager requires authentication, add the Alertmanager keys to the same secret (the examples below use the Jira keys; substitute `linear-api-key` or `pylon-api-token` as above):
 
 ```bash
 # For basic auth
@@ -363,8 +398,18 @@ data:
   # Alertmanager Configuration
   alertmanager-auth-type: "none"  # Options: "none", "basic", "bearer"
 
-  # Jira Configuration
+  # Ticket system: "jira" (default), "linear" or "pylon"
+  # ticket-system: "jira"
+
+  # Jira Configuration (ticket-system: jira)
   jira-project-key: "YOUR-PROJECT-KEY"
+
+  # Linear Configuration (ticket-system: linear, experimental)
+  # linear-team-id: "00000000-0000-0000-0000-000000000000"
+
+  # Pylon Configuration (ticket-system: pylon, experimental)
+  # pylon-account-id: "your-pylon-account-id"
+  # pylon-requester-email: "oncall@example.com"  # alternative to pylon-account-id
 
   # Sync Configuration
   sync-annotation-prefix: "silence-manager"
@@ -429,6 +474,8 @@ To link a silence with a ticket, include the ticket reference in the silence com
 <additional comment>
 ```
 
+The reference is whatever identifies the ticket in your ticket system: a Jira issue key (`OPS-123`), a Linear issue identifier (`ENG-123`) or a Pylon issue number or ID (see [Supported Ticket Systems](#supported-ticket-systems)).
+
 The prefix (`silence-manager` by default) can be customized using the `SYNC_ANNOTATION_PREFIX` environment variable. The synchronizer will automatically extract the ticket reference and manage the silence accordingly.
 
 ### Manual Trigger
@@ -457,7 +504,7 @@ The synchronizer runs on a schedule (default: every 15 minutes) and performs the
 
 1. **Retrieve all active silences** from Alertmanager
 2. **For each silence with a ticket reference**:
-   - Fetch the associated ticket from Jira
+   - Fetch the associated ticket from the configured ticket system
    - **If ticket is resolved**: Delete the silence
    - **If ticket is open and silence expires soon**: Extend the silence
    - **If ticket is open and silence has expired**: Extend the silence
@@ -499,13 +546,14 @@ The prefix can be customized using the `SYNC_ANNOTATION_PREFIX` environment vari
 
 - Ensure `SYNC_CHECK_ALERTS` is set to `true`
 - Verify alerts have the `ticket` label set
-- Check that the Jira workflow allows transitions from the ticket's current state
+- Check that the ticket system allows moving the ticket back to an open state from its current one (Jira workflow transitions, Linear workflow states, or Pylon issue statuses)
 
 ### Authentication Errors
 
-- Verify Jira API token is valid
-- Ensure the username matches the API token owner
-- Check that the user has appropriate permissions in the Jira project
+- Verify the API token or key for your ticket system is valid (`JIRA_API_TOKEN`, `LINEAR_API_KEY` or `PYLON_API_TOKEN`)
+- For Jira, ensure the username matches the API token owner and that the user has appropriate permissions in the project
+- For Linear, use a personal API key as-is, or prefix an OAuth token with `Bearer `
+- For Pylon, make sure the token's region matches `PYLON_API_URL` (the EU region uses `https://api.eu.usepylon.com`)
 
 ## Development
 
@@ -518,12 +566,16 @@ go test ./...
 ### Running Locally
 
 ```bash
-# Set environment variables
+# Set environment variables (Jira shown; see Configuration for Linear and Pylon)
 export JIRA_URL="https://yourcompany.atlassian.net"
 export JIRA_USERNAME="admin@example.com"
 export JIRA_API_TOKEN="your-api-token"
 export JIRA_PROJECT_KEY="OPS"
 export ALERTMANAGER_URL="http://localhost:9093"
+
+# To use Linear or Pylon instead, set TICKET_SYSTEM and its variables, e.g.:
+#   export TICKET_SYSTEM=linear LINEAR_API_KEY=lin_api_xxxxxxxx LINEAR_TEAM_ID=<team-uuid>
+#   export TICKET_SYSTEM=pylon PYLON_API_TOKEN=your-api-token PYLON_ACCOUNT_ID=<account-id>
 
 # Run the application
 go run ./cmd/silence-manager
