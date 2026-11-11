@@ -4,7 +4,7 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Project Overview
 
-silence-manager is a Kubernetes CronJob utility written in Golang that synchronizes Prometheus Alertmanager silences with ticket tracking systems (initially Jira). It ensures that both systems remain in sync by automatically managing silences based on ticket status.
+silence-manager is a Kubernetes CronJob utility written in Golang that synchronizes Prometheus Alertmanager silences with ticket tracking systems (Jira, plus experimental Linear and Pylon support). It ensures that both systems remain in sync by automatically managing silences based on ticket status.
 
 ## Current State
 
@@ -14,6 +14,7 @@ The project has been fully implemented with the following components:
 - **Abstract Interfaces**: Extensible design supporting multiple alertmanager and ticket systems
 - **Prometheus Alertmanager Client**: Full API integration
 - **Jira Ticket Client**: Complete Jira API v3 integration
+- **Linear and Pylon Ticket Clients** (experimental): implemented and checked against the vendors' published API documentation, not yet exercised against live workspaces
 - **Kubernetes Deployment**: CronJob, ConfigMap, Secret, and ServiceAccount manifests
 - **Docker Support**: Multi-stage Dockerfile for containerization
 
