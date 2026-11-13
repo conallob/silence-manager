@@ -106,11 +106,39 @@ Set `TICKET_SYSTEM=linear`. Tickets are referenced by Linear identifier (e.g. `E
 
 | Variable | Description | Example |
 |----------|-------------|---------|
-| `LINEAR_API_KEY` | Linear personal API key (use `Bearer <token>` for OAuth tokens) | `lin_api_xxxxxxxx` |
+| `LINEAR_API_KEY` | Linear personal API key. Set this **or** `LINEAR_OAUTH_TOKEN`, not both | `lin_api_xxxxxxxx` |
+| `LINEAR_OAUTH_TOKEN` | Access token of a Linear OAuth app, sent as `Authorization: Bearer <token>`. Set this **or** `LINEAR_API_KEY`, not both | `your-oauth-access-token` |
 | `LINEAR_TEAM_ID` | UUID of the team new issues are created in | `00000000-0000-0000-0000-000000000000` |
 | `LINEAR_API_URL` | Optional GraphQL endpoint override (credentials are sent to this URL) | `https://api.linear.app/graphql` |
 
 Ticket labels are not synchronized to Linear. State mapping: `triage`/`backlog`/`unstarted` are open, `started` is in progress, and `completed`, `canceled` and `duplicate` are all resolved, so the silence is deleted when an issue is completed, canceled or marked as a duplicate. Closing a ticket moves it to the team's first `completed` state; reopening moves it to the first `unstarted` (or `backlog`) state.
+
+#### Authenticating with a Linear OAuth app (least privilege)
+
+A personal API key acts as you, with all of your access. A Linear OAuth app lets you grant only the scopes silence-manager needs, and its comments and updates appear as the app rather than as a person. Set `LINEAR_OAUTH_TOKEN` to the app's access token.
+
+Scopes (see [Linear's OAuth documentation](https://linear.app/developers/oauth-2-0-authentication)):
+
+| Scope | Needed for |
+|-------|------------|
+| `read` | Reading tickets and the team's workflow states (always granted) |
+| `comments:create` | Commenting on tickets when silences are extended or deleted |
+| `issues:create` | Reopening tickets when an alert refires, and creating tickets (Linear documents this scope as "creating and updating issues", so the broader `write` is not needed) |
+
+Request `read,comments:create,issues:create` for full functionality. If you only want to read and comment, request `read,comments:create` and set `SYNC_CHECK_ALERTS=false`: silences are still extended and deleted as tickets change, but a closed ticket is not reopened when its alert refires.
+
+**Getting a token.** For an unattended CronJob, create an OAuth app in Linear, enable *client credentials tokens* on it, and exchange its credentials for an access token (replace the placeholders; this call is not made by silence-manager itself):
+
+```bash
+curl -sS -X POST https://api.linear.app/oauth/token \
+  -u "$LINEAR_CLIENT_ID:$LINEAR_CLIENT_SECRET" \
+  -d grant_type=client_credentials \
+  -d scope=read,comments:create,issues:create
+```
+
+The `access_token` in the response is the value for `LINEAR_OAUTH_TOKEN`. Such a token has access to all public teams in the workspace (adjust the app's team access in Linear if needed).
+
+**Tokens expire.** Client-credentials tokens are valid for 30 days and have no refresh token; tokens from the authorization-code flow last 24 hours by default and must be refreshed. silence-manager uses the token you give it as-is and does not renew it, so replace the secret before it expires (for example from your secret manager) or Linear requests will start failing with authentication errors.
 
 ### Required Configuration (Pylon)
 
@@ -313,11 +341,16 @@ kubectl create secret generic silence-manager-secrets \
   -n monitoring
 ```
 
-For Linear (experimental):
+For Linear (experimental), with a personal API key or an OAuth app token (one of the two, not both):
 
 ```bash
 kubectl create secret generic silence-manager-secrets \
   --from-literal=linear-api-key=lin_api_xxxxxxxx \
+  -n monitoring
+
+# or, for an OAuth app (least privilege)
+kubectl create secret generic silence-manager-secrets \
+  --from-literal=linear-oauth-token=your-oauth-access-token \
   -n monitoring
 ```
 
@@ -550,9 +583,9 @@ The prefix can be customized using the `SYNC_ANNOTATION_PREFIX` environment vari
 
 ### Authentication Errors
 
-- Verify the API token or key for your ticket system is valid (`JIRA_API_TOKEN`, `LINEAR_API_KEY` or `PYLON_API_TOKEN`)
+- Verify the API token or key for your ticket system is valid (`JIRA_API_TOKEN`, `LINEAR_API_KEY` / `LINEAR_OAUTH_TOKEN` or `PYLON_API_TOKEN`)
 - For Jira, ensure the username matches the API token owner and that the user has appropriate permissions in the project
-- For Linear, use a personal API key as-is, or prefix an OAuth token with `Bearer `
+- For Linear, use `LINEAR_API_KEY` for a personal API key and `LINEAR_OAUTH_TOKEN` for an OAuth app token (silence-manager adds the `Bearer ` prefix). OAuth tokens expire (30 days for client credentials, 24 hours for authorization-code tokens), so an expired token shows up as authentication errors; also check that the token has the scopes listed above
 - For Pylon, make sure the token's region matches `PYLON_API_URL` (the EU region uses `https://api.eu.usepylon.com`)
 
 ## Development
