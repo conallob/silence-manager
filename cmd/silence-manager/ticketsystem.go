@@ -21,7 +21,16 @@ func newTicketSystem(cfg *config.Config) (ticket.TicketSystem, error) {
 			cfg.Sync.AnnotationPrefix,
 		), nil
 	case config.TicketSystemLinear:
-		log.Printf("Linear team: %s", cfg.Linear.TeamID)
+		if cfg.Linear.OAuthToken != "" {
+			log.Printf("Linear team: %s (OAuth access token)", cfg.Linear.TeamID)
+			return ticket.NewLinearOAuthTicketSystem(
+				cfg.Linear.APIURL,
+				cfg.Linear.OAuthToken,
+				cfg.Linear.TeamID,
+				cfg.Sync.AnnotationPrefix,
+			), nil
+		}
+		log.Printf("Linear team: %s (personal API key)", cfg.Linear.TeamID)
 		return ticket.NewLinearTicketSystem(
 			cfg.Linear.APIURL,
 			cfg.Linear.APIKey,

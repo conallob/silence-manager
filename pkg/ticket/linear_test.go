@@ -277,3 +277,89 @@ func TestTruncateBody(t *testing.T) {
 		t.Errorf("Expected truncated body, got %d bytes", len(got))
 	}
 }
+
+// authHeaderServer returns a server that records the Authorization header of
+// the single request it receives, replying with an empty issue.
+func authHeaderServer(t *testing.T) (*httptest.Server, *string) {
+	t.Helper()
+	var got string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		got = r.Header.Get("Authorization")
+		_, _ = w.Write([]byte(`{"data":{"commentCreate":{"success":true}}}`))
+	}))
+	t.Cleanup(srv.Close)
+	return srv, &got
+}
+
+func TestLinearAuthorizationHeader(t *testing.T) {
+	tests := []struct {
+		name string
+		make func(url string) *LinearTicketSystem
+		want string
+	}{
+		{"personal API key is sent as-is", func(u string) *LinearTicketSystem { return NewLinearTicketSystem(u, "lin_api_abc", "team", "") }, "lin_api_abc"},
+		{"API key whitespace is trimmed", func(u string) *LinearTicketSystem { return NewLinearTicketSystem(u, "lin_api_abc\n", "team", "") }, "lin_api_abc"},
+		{"legacy Bearer value in the API key still passes through", func(u string) *LinearTicketSystem { return NewLinearTicketSystem(u, "Bearer tok123", "team", "") }, "Bearer tok123"},
+		{"OAuth token is sent as a Bearer token", func(u string) *LinearTicketSystem { return NewLinearOAuthTicketSystem(u, "tok123", "team", "") }, "Bearer tok123"},
+		{"OAuth token whitespace is trimmed", func(u string) *LinearTicketSystem { return NewLinearOAuthTicketSystem(u, " tok123\n", "team", "") }, "Bearer tok123"},
+		{"OAuth token with a Bearer prefix is not double-prefixed", func(u string) *LinearTicketSystem { return NewLinearOAuthTicketSystem(u, "Bearer tok123", "team", "") }, "Bearer tok123"},
+		{"the Bearer prefix is matched case-insensitively", func(u string) *LinearTicketSystem { return NewLinearOAuthTicketSystem(u, "bearer tok123", "team", "") }, "Bearer tok123"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			srv, got := authHeaderServer(t)
+			if err := tt.make(srv.URL).AddComment("ENG-1", "hi"); err != nil {
+				t.Fatalf("AddComment: %v", err)
+			}
+			if *got != tt.want {
+				t.Errorf("Authorization = %q, want %q", *got, tt.want)
+			}
+		})
+	}
+}
+
+func TestLinearOAuth_Defaults(t *testing.T) {
+	l := NewLinearOAuthTicketSystem("", "tok", "team", "")
+	if l.apiURL != DefaultLinearAPIURL || l.annotationPrefix != "silence-manager" || l.teamID != "team" {
+		t.Errorf("Unexpected defaults: %+v", l)
+	}
+}
+
+// An OAuth-authenticated client must behave exactly like an API-key one apart
+// from the header: read an issue, close it (state change) and comment.
+func TestLinearOAuth_FullFlow(t *testing.T) {
+	var auths []string
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		auths = append(auths, r.Header.Get("Authorization"))
+		var req linearGraphQLRequest
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		switch {
+		case strings.Contains(req.Query, "states {"):
+			_, _ = w.Write([]byte(`{"data":{"issue":{"team":{"id":"t","states":{"nodes":[{"id":"d","name":"Done","type":"completed","position":0}]}}}}}`))
+		case strings.Contains(req.Query, "issueUpdate"):
+			_, _ = w.Write([]byte(`{"data":{"issueUpdate":{"success":true}}}`))
+		case strings.Contains(req.Query, "commentCreate"):
+			_, _ = w.Write([]byte(`{"data":{"commentCreate":{"success":true}}}`))
+		default:
+			_, _ = w.Write([]byte(`{"data":{"issue":{"id":"u","identifier":"ENG-1","title":"t","state":{"type":"started"}}}}`))
+		}
+	}))
+	defer srv.Close()
+
+	l := NewLinearOAuthTicketSystem(srv.URL, "tok", "team", "")
+	tkt, err := l.GetTicket("ENG-1")
+	if err != nil || tkt.Key != "ENG-1" || !l.IsOpen(tkt) {
+		t.Fatalf("GetTicket = %+v, %v", tkt, err)
+	}
+	if err := l.CloseTicket("ENG-1", "done"); err != nil {
+		t.Fatalf("CloseTicket: %v", err)
+	}
+	if len(auths) < 4 {
+		t.Fatalf("expected at least 4 requests (get, states, update, comment), got %d", len(auths))
+	}
+	for i, a := range auths {
+		if a != "Bearer tok" {
+			t.Errorf("request %d used Authorization %q, want %q", i, a, "Bearer tok")
+		}
+	}
+}

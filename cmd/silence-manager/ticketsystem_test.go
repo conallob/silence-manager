@@ -134,3 +134,33 @@ func TestNewTicketSystem_PylonWiring(t *testing.T) {
 		t.Errorf("Expected an HTML body, got %v", body["body_html"])
 	}
 }
+
+func TestNewTicketSystem_LinearOAuthWiring(t *testing.T) {
+	var gotAuth string
+	var vars map[string]any
+	srv := httptest.NewServer(http.HandlerFunc(func(w http.ResponseWriter, r *http.Request) {
+		gotAuth = r.Header.Get("Authorization")
+		var req struct {
+			Variables map[string]any `json:"variables"`
+		}
+		_ = json.NewDecoder(r.Body).Decode(&req)
+		vars = req.Variables
+		_, _ = w.Write([]byte(`{"data":{"issueCreate":{"success":true,"issue":{"id":"u","identifier":"ENG-8"}}}}`))
+	}))
+	defer srv.Close()
+
+	ts, err := newTicketSystem(&config.Config{
+		TicketSystem: config.TicketSystemLinear,
+		Linear:       config.LinearConfig{APIURL: srv.URL, OAuthToken: "oauth-tok", TeamID: "team-uuid"},
+	})
+	if err != nil {
+		t.Fatal(err)
+	}
+	if key, err := ts.CreateTicket(&ticket.Ticket{Summary: "s", Description: "d"}); err != nil || key != "ENG-8" {
+		t.Fatalf("CreateTicket = %q, %v", key, err)
+	}
+	input, _ := vars["input"].(map[string]any)
+	if gotAuth != "Bearer oauth-tok" || input["teamId"] != "team-uuid" {
+		t.Errorf("Linear OAuth request not wired from config: auth=%q input=%v", gotAuth, input)
+	}
+}
