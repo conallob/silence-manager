@@ -20,7 +20,7 @@ jobs:
 
     steps:
     - name: Checkout code
-      uses: actions/checkout@v4
+      uses: actions/checkout@v7
 
     # Use the Go version from go.mod: govulncheck must be built with a Go
     # version at least as new as the code it analyzes.
