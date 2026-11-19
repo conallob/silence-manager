@@ -1,6 +1,7 @@
 package config
 
 import (
+	"strings"
 	"os"
 	"testing"
 	"time"
@@ -411,7 +412,7 @@ func TestGetEnvBool_InvalidValue(t *testing.T) {
 func cleanEnv() {
 	vars := []string{
 		"JIRA_URL", "JIRA_USERNAME", "JIRA_API_TOKEN", "JIRA_PROJECT_KEY",
-		"TICKET_SYSTEM", "LINEAR_API_URL", "LINEAR_API_KEY", "LINEAR_TEAM_ID",
+		"TICKET_SYSTEM", "LINEAR_API_URL", "LINEAR_API_KEY", "LINEAR_OAUTH_TOKEN", "LINEAR_TEAM_ID",
 		"PYLON_API_URL", "PYLON_API_TOKEN", "PYLON_ACCOUNT_ID", "PYLON_REQUESTER_EMAIL",
 		"ALERTMANAGER_URL", "ALERTMANAGER_AUTO_DISCOVER", "ALERTMANAGER_AUTH_TYPE",
 		"ALERTMANAGER_USERNAME", "ALERTMANAGER_PASSWORD", "ALERTMANAGER_BEARER_TOKEN",
@@ -435,6 +436,9 @@ func TestLoadConfig_TicketSystems(t *testing.T) {
 		{"default is jira", map[string]string{"JIRA_URL": "u", "JIRA_USERNAME": "n", "JIRA_API_TOKEN": "t", "JIRA_PROJECT_KEY": "P"}, "jira", false},
 		{"linear", map[string]string{"TICKET_SYSTEM": "Linear", "LINEAR_API_KEY": "k", "LINEAR_TEAM_ID": "team"}, "linear", false},
 		{"linear without team", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_API_KEY": "k"}, "", true},
+		{"linear with OAuth token", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_OAUTH_TOKEN": "tok", "LINEAR_TEAM_ID": "team"}, "linear", false},
+		{"linear OAuth token without team", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_OAUTH_TOKEN": "tok"}, "", true},
+		{"linear with both API key and OAuth token is ambiguous", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_API_KEY": "k", "LINEAR_OAUTH_TOKEN": "tok", "LINEAR_TEAM_ID": "team"}, "", true},
 		{"linear without key", map[string]string{"TICKET_SYSTEM": "linear", "LINEAR_TEAM_ID": "team"}, "", true},
 		{"pylon with account", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_API_TOKEN": "t", "PYLON_ACCOUNT_ID": "a"}, "pylon", false},
 		{"pylon with requester email", map[string]string{"TICKET_SYSTEM": "pylon", "PYLON_API_TOKEN": "t", "PYLON_REQUESTER_EMAIL": "a@b.c"}, "pylon", false},
@@ -456,6 +460,47 @@ func TestLoadConfig_TicketSystems(t *testing.T) {
 			}
 			if err == nil && cfg.TicketSystem != tt.want {
 				t.Errorf("TicketSystem = %q, want %q", cfg.TicketSystem, tt.want)
+			}
+		})
+	}
+}
+
+func TestLoadConfig_LinearCredentialFields(t *testing.T) {
+	cleanEnv()
+	defer cleanEnv()
+	os.Setenv("TICKET_SYSTEM", "linear")
+	os.Setenv("LINEAR_OAUTH_TOKEN", "oauth-tok")
+	os.Setenv("LINEAR_TEAM_ID", "team")
+
+	cfg, err := LoadConfig()
+	if err != nil {
+		t.Fatalf("LoadConfig() failed: %v", err)
+	}
+	if cfg.Linear.OAuthToken != "oauth-tok" || cfg.Linear.APIKey != "" {
+		t.Errorf("Unexpected Linear credentials: %+v", cfg.Linear)
+	}
+}
+
+func TestLoadConfig_LinearCredentialErrors(t *testing.T) {
+	tests := []struct {
+		name string
+		env  map[string]string
+		want string
+	}{
+		{"none", map[string]string{"LINEAR_TEAM_ID": "team"}, "LINEAR_API_KEY or LINEAR_OAUTH_TOKEN"},
+		{"both", map[string]string{"LINEAR_API_KEY": "k", "LINEAR_OAUTH_TOKEN": "t", "LINEAR_TEAM_ID": "team"}, "only one of LINEAR_API_KEY and LINEAR_OAUTH_TOKEN"},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			cleanEnv()
+			defer cleanEnv()
+			os.Setenv("TICKET_SYSTEM", "linear")
+			for k, v := range tt.env {
+				os.Setenv(k, v)
+			}
+			_, err := LoadConfig()
+			if err == nil || !strings.Contains(err.Error(), tt.want) {
+				t.Errorf("LoadConfig() error = %v, want it to mention %q", err, tt.want)
 			}
 		})
 	}

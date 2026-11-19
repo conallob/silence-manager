@@ -94,6 +94,12 @@ spec:
                   name: silence-manager-secrets
                   key: linear-api-key
                   optional: true
+            - name: LINEAR_OAUTH_TOKEN
+              valueFrom:
+                secretKeyRef:
+                  name: silence-manager-secrets
+                  key: linear-oauth-token
+                  optional: true
             - name: LINEAR_TEAM_ID
               valueFrom:
                 configMapKeyRef:

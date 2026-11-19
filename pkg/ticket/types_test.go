@@ -32,9 +32,10 @@ func TestStatusPredicates(t *testing.T) {
 // synchronizer's behaviour depends on them.
 func TestImplementationsUseSharedPredicates(t *testing.T) {
 	systems := map[string]TicketSystem{
-		"jira":   NewJiraTicketSystem("http://x", "u", "t", "P", ""),
-		"linear": NewLinearTicketSystem("http://x", "k", "team", ""),
-		"pylon":  NewPylonTicketSystem("http://x", "t", "acct", "", ""),
+		"jira":         NewJiraTicketSystem("http://x", "u", "t", "P", ""),
+		"linear":       NewLinearTicketSystem("http://x", "k", "team", ""),
+		"linear-oauth": NewLinearOAuthTicketSystem("http://x", "t", "team", ""),
+		"pylon":        NewPylonTicketSystem("http://x", "t", "acct", "", ""),
 	}
 	for name, ts := range systems {
 		for _, status := range []TicketStatus{StatusOpen, StatusInProgress, StatusResolved, StatusClosed, StatusReopened} {

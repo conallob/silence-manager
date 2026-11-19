@@ -44,9 +44,10 @@ type JiraConfig struct {
 
 // LinearConfig holds Linear-specific configuration
 type LinearConfig struct {
-	APIURL string // Optional override of the GraphQL endpoint
-	APIKey string
-	TeamID string // UUID of the team new issues are created in
+	APIURL     string // Optional override of the GraphQL endpoint
+	APIKey     string // Personal API key (sent as-is); exclusive with OAuthToken
+	OAuthToken string // OAuth2 access token (sent as a Bearer token); exclusive with APIKey
+	TeamID     string // UUID of the team new issues are created in
 }
 
 // PylonConfig holds Pylon-specific configuration
@@ -120,9 +121,10 @@ func LoadConfig() (*Config, error) {
 			ProjectKey: getEnv("JIRA_PROJECT_KEY", ""),
 		},
 		Linear: LinearConfig{
-			APIURL: getEnv("LINEAR_API_URL", ""),
-			APIKey: getEnv("LINEAR_API_KEY", ""),
-			TeamID: getEnv("LINEAR_TEAM_ID", ""),
+			APIURL:     getEnv("LINEAR_API_URL", ""),
+			APIKey:     getEnv("LINEAR_API_KEY", ""),
+			OAuthToken: getEnv("LINEAR_OAUTH_TOKEN", ""),
+			TeamID:     getEnv("LINEAR_TEAM_ID", ""),
 		},
 		Pylon: PylonConfig{
 			APIURL:         getEnv("PYLON_API_URL", ""),
@@ -167,8 +169,11 @@ func LoadConfig() (*Config, error) {
 			return nil, fmt.Errorf("JIRA_PROJECT_KEY is required")
 		}
 	case TicketSystemLinear:
-		if cfg.Linear.APIKey == "" {
-			return nil, fmt.Errorf("LINEAR_API_KEY is required when TICKET_SYSTEM is 'linear'")
+		switch {
+		case cfg.Linear.APIKey == "" && cfg.Linear.OAuthToken == "":
+			return nil, fmt.Errorf("LINEAR_API_KEY or LINEAR_OAUTH_TOKEN is required when TICKET_SYSTEM is 'linear'")
+		case cfg.Linear.APIKey != "" && cfg.Linear.OAuthToken != "":
+			return nil, fmt.Errorf("set only one of LINEAR_API_KEY and LINEAR_OAUTH_TOKEN when TICKET_SYSTEM is 'linear'")
 		}
 		if cfg.Linear.TeamID == "" {
 			return nil, fmt.Errorf("LINEAR_TEAM_ID is required when TICKET_SYSTEM is 'linear'")

@@ -16,18 +16,39 @@ const DefaultLinearAPIURL = "https://api.linear.app/graphql"
 
 // LinearTicketSystem implements the TicketSystem interface for Linear (linear.app)
 type LinearTicketSystem struct {
-	apiURL           string
-	apiKey           string
+	apiURL string
+	// authorization is the complete value of the Authorization header: a
+	// personal API key as-is, or "Bearer <token>" for an OAuth access token.
+	authorization    string
 	teamID           string
 	httpClient       *http.Client
 	annotationPrefix string
 }
 
-// NewLinearTicketSystem creates a new Linear ticket system client.
-// apiKey is a Linear personal API key (sent as-is) or an OAuth token prefixed
-// with "Bearer ". teamID is the UUID of the team new issues are created in.
-// apiURL may be empty to use the public Linear API.
+// NewLinearTicketSystem creates a Linear ticket system client that
+// authenticates with a personal API key, which is sent as-is in the
+// Authorization header. (A value that already starts with "Bearer " is also
+// passed through unchanged, for OAuth tokens configured this way; prefer
+// NewLinearOAuthTicketSystem for those.) teamID is the UUID of the team new
+// issues are created in. apiURL may be empty to use the public Linear API.
 func NewLinearTicketSystem(apiURL, apiKey, teamID, annotationPrefix string) *LinearTicketSystem {
+	return newLinearTicketSystem(apiURL, strings.TrimSpace(apiKey), teamID, annotationPrefix)
+}
+
+// NewLinearOAuthTicketSystem creates a Linear ticket system client that
+// authenticates with an OAuth2 access token, sent as "Authorization: Bearer
+// <token>". This lets a Linear OAuth application be granted only the scopes
+// it needs (see the README) instead of a personal API key's full access. A
+// leading "Bearer " on the token is tolerated.
+func NewLinearOAuthTicketSystem(apiURL, oauthToken, teamID, annotationPrefix string) *LinearTicketSystem {
+	token := strings.TrimSpace(oauthToken)
+	if len(token) >= len("Bearer ") && strings.EqualFold(token[:len("Bearer ")], "Bearer ") {
+		token = strings.TrimSpace(token[len("Bearer "):])
+	}
+	return newLinearTicketSystem(apiURL, "Bearer "+token, teamID, annotationPrefix)
+}
+
+func newLinearTicketSystem(apiURL, authorization, teamID, annotationPrefix string) *LinearTicketSystem {
 	if apiURL == "" {
 		apiURL = DefaultLinearAPIURL
 	}
@@ -36,7 +57,7 @@ func NewLinearTicketSystem(apiURL, apiKey, teamID, annotationPrefix string) *Lin
 	}
 	return &LinearTicketSystem{
 		apiURL:           apiURL,
-		apiKey:           apiKey,
+		authorization:    authorization,
 		teamID:           teamID,
 		annotationPrefix: annotationPrefix,
 		httpClient:       &http.Client{Timeout: 30 * time.Second},
@@ -102,7 +123,7 @@ func (l *LinearTicketSystem) do(query string, vars map[string]any, out any) erro
 	if err != nil {
 		return fmt.Errorf("failed to create request: %w", err)
 	}
-	req.Header.Set("Authorization", l.apiKey)
+	req.Header.Set("Authorization", l.authorization)
 	req.Header.Set("Content-Type", "application/json")
 	req.Header.Set("Accept", "application/json")
 

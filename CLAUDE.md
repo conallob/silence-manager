@@ -153,7 +153,7 @@ All configuration is via environment variables (see pkg/config/config.go):
 
 **Ticket system:**
 - `TICKET_SYSTEM`: `jira` (default), `linear` or `pylon`; only the selected system's variables are required
-- Linear: `LINEAR_API_KEY`, `LINEAR_TEAM_ID` (optional `LINEAR_API_URL`)
+- Linear: `LINEAR_API_KEY` (personal API key) or `LINEAR_OAUTH_TOKEN` (OAuth app token, sent as a Bearer token; set exactly one), plus `LINEAR_TEAM_ID` (optional `LINEAR_API_URL`)
 - Pylon: `PYLON_API_TOKEN`, `PYLON_ACCOUNT_ID` or `PYLON_REQUESTER_EMAIL` (optional `PYLON_API_URL`)
 
 **Required for Jira (default):**
